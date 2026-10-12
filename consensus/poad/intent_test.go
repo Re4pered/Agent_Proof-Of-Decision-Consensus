@@ -1,6 +1,8 @@
 package poad
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
@@ -146,5 +148,38 @@ func TestEvaluateWithTraceIntentRejectsMismatchedDecisionHash(t *testing.T) {
 	}, tx, []TraceIntentLink{intent})
 	if err == nil {
 		t.Fatal("EvaluateWithTraceIntent() should reject a mismatched transaction hash")
+	}
+}
+
+
+func TestLoadTraceIntentLinksVerifiedAcceptsMatchingDigest(t *testing.T) {
+	raw := `{"action":"pay","agent_id":"agent-1","target":"agent-2","amount":25,"request_id":"request-123","params_hash":"v1","tx_hashes":["deadbeef"],"expected_sender":"0x01","expected_recipient":"0x02"}` + "\n"
+	digest := sha256.Sum256([]byte(raw))
+
+	links, err := LoadTraceIntentLinksVerified(strings.NewReader(raw), hex.EncodeToString(digest[:]))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(links) != 1 || links[0].RequestID != "request-123" {
+		t.Fatalf("loaded links = %+v; want one link for request-123", links)
+	}
+}
+
+func TestLoadTraceIntentLinksVerifiedRejectsTamperedManifest(t *testing.T) {
+	expectedBytes := []byte("{\"action\":\"pay\"}\n")
+	expectedDigest := sha256.Sum256(expectedBytes)
+	tampered := strings.NewReader("{\"action\":\"revoke\"}\n")
+
+	_, err := LoadTraceIntentLinksVerified(tampered, hex.EncodeToString(expectedDigest[:]))
+	if err == nil {
+		t.Fatal("LoadTraceIntentLinksVerified() should reject a digest mismatch")
+	}
+}
+
+func TestLoadTraceIntentLinksVerifiedRequiresDigest(t *testing.T) {
+	_, err := LoadTraceIntentLinksVerified(strings.NewReader(""), "")
+	if err == nil {
+		t.Fatal("LoadTraceIntentLinksVerified() should require a trusted digest")
 	}
 }
