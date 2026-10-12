@@ -42,3 +42,15 @@ This remains an off-chain decision path. It does not authenticate the JSONL mani
 is not wired into PBFT proposal validation. Before consensus integration, validators must
 obtain the same manifest from a defined trusted/committed source and verify its integrity;
 ordinary transaction and state-transition checks must remain mandatory.
+
+
+## Trace manifest integrity check (phase 3)
+
+`LoadTraceIntentLinksVerified` verifies the SHA-256 digest of the exact JSONL bytes
+before parsing the manifest. The expected digest must be obtained from an independently
+trusted or committed source. Placing a digest next to an untrusted manifest is not
+authentication, and this helper alone does not prove who created the trace.
+
+The helper is still off-chain: no PBFT message or block validation path consumes this
+digest yet. Before consensus integration, define how all validators agree on the trusted
+digest and manifest version, and retain the ordinary transaction/state validation path.
