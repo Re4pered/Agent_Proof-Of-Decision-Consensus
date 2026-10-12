@@ -136,7 +136,6 @@ func VerifyPaymentIntent(intent TraceIntentLink, tx transaction.Transaction) (Ch
 	return Pass, []string{"payment_intent_matched"}, nil
 }
 
-
 // EvaluateWithTraceIntent connects trace-linked payment verification to the
 // deterministic PoAD decision policy. Missing or ambiguous links produce UNKNOWN
 // intent status, which makes the policy abstain unless another check already fails.
@@ -159,12 +158,14 @@ func EvaluateWithTraceIntent(
 	intent, err := FindIntentForTransaction(links, tx)
 	if err != nil {
 		in.Intent = Unknown
+
 		decision, evalErr := Evaluate(in)
 		if evalErr != nil {
 			return Decision{}, evalErr
 		}
 
 		decision.Reasons = append(decision.Reasons, "intent_link_unavailable")
+
 		return decision, nil
 	}
 
