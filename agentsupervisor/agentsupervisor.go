@@ -48,15 +48,17 @@ type Result struct {
 
 // ActionTxLink is one trace action and the transactions it compiled into.
 type ActionTxLink struct {
-	Seq        int      `json:"seq"`
-	Action     Action   `json:"action"`
-	AgentID    string   `json:"agent_id"`
-	Target     string   `json:"target"`
-	Amount     uint64   `json:"amount"`
-	TS         int64    `json:"ts"`
-	RequestID  string   `json:"request_id"`
-	ParamsHash string   `json:"params_hash"`
-	TxHashes   []string `json:"tx_hashes"`
+	Seq               int      `json:"seq"`
+	Action            Action   `json:"action"`
+	AgentID           string   `json:"agent_id"`
+	Target            string   `json:"target"`
+	Amount            uint64   `json:"amount"`
+	TS                int64    `json:"ts"`
+	RequestID         string   `json:"request_id"`
+	ParamsHash        string   `json:"params_hash"`
+	TxHashes          []string `json:"tx_hashes"`
+	ExpectedSender    string   `json:"expected_sender,omitempty"`
+	ExpectedRecipient string   `json:"expected_recipient,omitempty"`
 }
 
 // AgentSupervisor compiles lifecycle and payment actions into existing transactions.
@@ -178,6 +180,10 @@ func (s *AgentSupervisor) processPay(record Record) error {
 	}
 
 	s.appendTx(from, to, record.Amount, nil, record.TS)
+	// Preserve the trace-derived payment intent beside the transaction hash so
+	// PoAD can later verify the exact transfer against its originating action.
+	s.links[s.curLink].ExpectedSender = fmt.Sprintf("0x%x", from)
+	s.links[s.curLink].ExpectedRecipient = fmt.Sprintf("0x%x", to)
 	s.linkLastTxTo(s.curLink)
 	s.metric("pay_onchain", record)
 
