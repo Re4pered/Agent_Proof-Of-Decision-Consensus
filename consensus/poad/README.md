@@ -54,3 +54,17 @@ authentication, and this helper alone does not prove who created the trace.
 The helper is still off-chain: no PBFT message or block validation path consumes this
 digest yet. Before consensus integration, define how all validators agree on the trusted
 digest and manifest version, and retain the ordinary transaction/state validation path.
+
+
+## Signed decision records (phase 4)
+
+`SignDecision` and `VerifyDecisionSignature` use Ed25519 to authenticate a decision's
+serialized fields and detect post-signing modification. Verification also checks the
+expected AgentID. The verifier's public key must be resolved from a trusted identity
+registry; accepting a public key supplied only by the decision itself would not establish
+the signer's identity.
+
+A valid signature proves that the holder of the corresponding private key signed these
+decision bytes. It does not prove that the transaction, state, intent, evidence, or hidden
+reasoning was evaluated correctly. These helpers are not yet wired into PBFT messages or
+block validation.
