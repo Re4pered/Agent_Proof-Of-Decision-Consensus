@@ -32,5 +32,13 @@ its transfer type, sender, recipient, and amount match the trace-derived intent.
 
 This is an off-chain linkage/checking step. It is not yet wired into PBFT proposal
 validation, and the JSONL manifest is not itself authenticated consensus evidence.
-The next phase must define how every validator obtains the same manifest and verifies
-its integrity before allowing the decision to affect consensus.
+The next local step now composes this helper with the deterministic policy through
+`EvaluateWithTraceIntent`: a matching payment intent contributes PASS/FAIL to the PoAD
+decision, while missing or ambiguous links result in UNKNOWN and normally ABSTAIN.
+The helper also checks that the decision's transaction hash matches the transaction being
+evaluated.
+
+This remains an off-chain decision path. It does not authenticate the JSONL manifest and
+is not wired into PBFT proposal validation. Before consensus integration, validators must
+obtain the same manifest from a defined trusted/committed source and verify its integrity;
+ordinary transaction and state-transition checks must remain mandatory.
