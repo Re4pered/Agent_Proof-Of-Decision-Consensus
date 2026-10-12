@@ -59,15 +59,27 @@ func FindIntentForTransaction(links []TraceIntentLink, tx transaction.Transactio
 
 	actualHash := fmt.Sprintf("%x", hash)
 
-	for _, link := range links {
-		for _, linkedHash := range link.TxHashes {
-			if strings.EqualFold(strings.TrimPrefix(linkedHash, "0x"), actualHash) {
-				return link, nil
+	var matched *TraceIntentLink
+
+	for i := range links {
+		for _, linkedHash := range links[i].TxHashes {
+			if !strings.EqualFold(strings.TrimPrefix(linkedHash, "0x"), actualHash) {
+				continue
 			}
+
+			if matched != nil {
+				return TraceIntentLink{}, fmt.Errorf("ambiguous trace intent links for transaction %s", actualHash)
+			}
+
+			matched = &links[i]
 		}
 	}
 
-	return TraceIntentLink{}, fmt.Errorf("no trace intent link found for transaction %s", actualHash)
+	if matched == nil {
+		return TraceIntentLink{}, fmt.Errorf("no trace intent link found for transaction %s", actualHash)
+	}
+
+	return *matched, nil
 }
 
 // VerifyPaymentIntent checks a compiled payment transaction against its trace link.
@@ -122,4 +134,53 @@ func VerifyPaymentIntent(intent TraceIntentLink, tx transaction.Transaction) (Ch
 	}
 
 	return Pass, []string{"payment_intent_matched"}, nil
+}
+
+
+// EvaluateWithTraceIntent connects trace-linked payment verification to the
+// deterministic PoAD decision policy. Missing or ambiguous links produce UNKNOWN
+// intent status, which makes the policy abstain unless another check already fails.
+// The caller must still validate transaction/state and authenticate the trace manifest.
+func EvaluateWithTraceIntent(
+	in VerificationInput,
+	tx transaction.Transaction,
+	links []TraceIntentLink,
+) (Decision, error) {
+	hash, err := tx.Hash()
+	if err != nil {
+		return Decision{}, fmt.Errorf("hash transaction for PoAD decision: %w", err)
+	}
+
+	actualHash := fmt.Sprintf("%x", hash)
+	if !strings.EqualFold(strings.TrimPrefix(in.TransactionHash, "0x"), actualHash) {
+		return Decision{}, fmt.Errorf("decision transaction hash does not match transaction")
+	}
+
+	intent, err := FindIntentForTransaction(links, tx)
+	if err != nil {
+		in.Intent = Unknown
+		decision, evalErr := Evaluate(in)
+		if evalErr != nil {
+			return Decision{}, evalErr
+		}
+
+		decision.Reasons = append(decision.Reasons, "intent_link_unavailable")
+		return decision, nil
+	}
+
+	status, reasons, err := VerifyPaymentIntent(intent, tx)
+	if err != nil {
+		return Decision{}, err
+	}
+
+	in.Intent = status
+
+	decision, err := Evaluate(in)
+	if err != nil {
+		return Decision{}, err
+	}
+
+	decision.Reasons = append(decision.Reasons, reasons...)
+
+	return decision, nil
 }
