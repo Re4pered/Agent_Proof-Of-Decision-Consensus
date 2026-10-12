@@ -1,0 +1,44 @@
+package txblockop
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/HuangLab-SYSU/block-emulator-x/config"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/chain"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/message"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/network"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/nodetopo"
+)
+
+// TxBlockOp describes the operations for blocks which contains transactions.
+type TxBlockOp interface {
+	// BuildTxBlockProposal builds a proposal containing a transaction block, by the given transactions.
+	BuildTxBlockProposal(ctx context.Context, txs []transaction.Transaction) (*message.Proposal, error)
+	// BlockCommitAndDeliver commits and delivers blocks.
+	// Note that, blocks will be delivered to different nodes according to the consensus.
+	BlockCommitAndDeliver(ctx context.Context, isLeader bool, b *block.Block) error
+}
+
+func NewTxBlockOp(
+	conn *network.ConnHandler,
+	resolver nodetopo.NodeMapper,
+	chain *chain.Chain,
+	cfg config.ConsensusNodeCfg,
+	lp config.LocalParams,
+) (TxBlockOp, error) {
+	var tbo TxBlockOp
+
+	switch cfg.ConsensusType {
+	case config.StaticRelayConsensus, config.CLPARelayConsensus:
+		tbo = NewRelayTxBlockOp(chain, conn, resolver, cfg, lp)
+	case config.StaticBrokerConsensus, config.CLPABrokerConsensus:
+		tbo = NewBrokerTxBlockOp(chain, conn, resolver, cfg, lp)
+	default:
+		return nil, fmt.Errorf("unknown consensus type: %s", cfg.ConsensusType)
+	}
+
+	return tbo, nil
+}

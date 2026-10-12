@@ -1,0 +1,47 @@
+version: "2"
+run:
+  tests: false
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+    - gci
+    - golines
+  settings:
+    gofumpt:
+      extra-rules: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/HuangLab-SYSU/block-emulator-x)
+        - blank
+    golines:
+      max-len: 120
+
+linters:
+  enable:
+    - wsl_v5
+    - errcheck
+    - errname
+    - errorlint
+    - staticcheck
+    - unused
+    - gocyclo
+    - ineffassign
+    - goconst
+    - unparam
+    - dupl
+    - misspell
+    - tparallel
+    - govet
+  settings:
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
+
+
+issues:
+  max-same-issues: 3

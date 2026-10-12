@@ -1,0 +1,28 @@
+base:
+  blockemulator_config: ./config.yaml
+  result_dir: ./exp/agentemu-results
+  # Module root of BlockEmulator-X (contains go.mod and cmd/); used to build
+  # and launch the cluster when chain.enabled is true. Default: working dir.
+  module_root: "."
+experiment:
+  seed: 20260903
+  trace: ./traces/agent=100_txs=10000.jsonl
+chain:
+  # When true, each round's transaction plan is automatically executed on a
+  # freshly launched BlockEmulator-X cluster (consensus nodes + supervisor):
+  # agentemu builds the binaries, derives a per-round config and ip table,
+  # replays the plan via tx_source=trace_source_JSONL, and waits for the cluster to
+  # stop by itself.
+  enabled: true
+  run_timeout_seconds: 600    # hard bound for one whole chain run
+  node_exit_grace_seconds: 15 # grace for nodes to exit after the supervisor
+loop:
+  # Caps the simulation loop; 1 means a single pass over the trace. Rounds
+  # beyond the first require an AgentAPI feedback implementation.
+  max_rounds: 1
+protocols:
+  pay:
+    plugin: direct-pay
+  identity:
+    plugin: did-simple
+    contract_address: "0x0000000000000000000000000000000000000030"

@@ -1,0 +1,50 @@
+system:
+  shard_num: 4
+  consensus_type: "static_relay" # [static_relay, static_broker, clpa_relay, clpa_broker]
+  node_num: 4
+  limit: 2000
+  log:
+    log_dir: "./exp_test/"
+    log_level: "debug" #[debug, info, warn, error]
+
+consensus_node:
+  blockchain:
+    bloom_filter:
+      bitset_len: 4096
+      filter_hash_func: [ sha256, sha512, sha1 ]
+    storage:
+      block_storage_type: "bolt"
+      trie_storage_type: "eth_level_db"
+      bolt:
+        file_path_dir: "./exp_test/boltdb/"
+      eth_storage:
+        is_memory_db: false
+        level_file_path_dir: "./exp_test/trie_db/"
+        old_state_root: ""
+  tx_pool:
+    type: "number" # [byte, number]
+  block_interval: 5000 # ms
+  block_record_dir: "./exp_test/block_record/"
+
+supervisor:
+  tx_number: 100000
+  tx_injection_speed: 10000
+  result_output_dir: "./exp_test/results/"
+  epoch_duration: 50.0 # second
+  tx_source:
+    tx_source_type: "random_source" # [random_source, csv_source]
+    tx_source_file: "" # valid when tx_source_type = csv_source
+    exclude_contract_txs: true
+  broker_module:
+    broker_file_path: "./pkg/broker/broker"
+    broker_num: 50
+
+network:
+  bandwidth: 1000000
+  latency: 0
+  communication_mode: "libp2p"
+  libp2p:
+    bootstrap_key_fp: "./pkg/network/connlibp2p/bootstrap.key"
+    bootstrap_peer: "12D3KooWR6siPMZ2sMFKbgwaJFwQfnKczuPZnxHfyy1dHTzZSAUY"
+    bootstrap_ip: "127.0.0.1"
+    bootstrap_port: 12345

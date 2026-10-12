@@ -1,0 +1,81 @@
+$:
+  vscode:
+    - docker:
+        build: .ide/Dockerfile
+        volumes:
+          - /go/pkg/mod
+          - /root/.cache/go-build
+      services:
+        - vscode
+        - docker
+      stages:
+        - name: ls
+          script: ls -al
+
+"v*":
+  tag_push:
+    - name: release
+      docker:
+        build: .ide/Dockerfile
+        volumes:
+          - /go/pkg/mod
+          - /root/.cache/go-build
+      stages:
+        - name: echo tag
+          script: echo $CNB_BRANCH
+        - name: changelog
+          image: cnbcool/changelog
+          exports:
+            latestChangeLog: LATEST_CHANGE_LOG
+        - name: create release
+          type: git:release
+          options:
+            title: $CNB_BRANCH
+            description: ${LATEST_CHANGE_LOG}
+
+main:
+  pull_request: &pr-ci
+    - name: go-ci
+      docker:
+        build: .ide/Dockerfile
+        volumes:
+          - /go/pkg/mod
+          - /root/.cache/go-build
+      ifModify:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+      stages:
+        - name: setup-go
+          script: go version
+        - name: download-modules
+          script: go mod download
+        - name: tidy-diff
+          script: go mod tidy -diff
+        - name: run-lint
+          script: golangci-lint run --timeout 5m ./...
+        - name: run-tests
+          script: |
+            mkdir -p test-coverage
+            go test -v -covermode=atomic -coverprofile=test-coverage/coverage.out -gcflags=all='-N -l' ./...
+        - name: build-binaries
+          script: go build -v ./...
+          env:
+            CGO_ENABLED: 0
+
+    - name: commit-lint
+      stages:
+        - name: commit lint
+          image: cnbcool/commitlint
+
+  push:
+    - <<: *pr-ci
+
+  pull_request.mergeable:
+    - name: auto-merge
+      stages:
+        - name: CR 通过后自动合并
+          type: git:auto-merge
+          options:
+            mergeType: squash
+            removeSourceBranch: true
