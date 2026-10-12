@@ -76,3 +76,75 @@ func TestLoadTraceIntentLinksAndFindTransaction(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	if status != Pass { t.Fatalf("status = %s, reasons = %v; want PASS", status, reasons) }
 }
+
+
+func TestEvaluateWithTraceIntentAcceptsMatchedPayment(t *testing.T) {
+	intent, tx := paymentFixture()
+	hash, err := tx.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decision, err := EvaluateWithTraceIntent(VerificationInput{
+		AgentID:         "validator-1",
+		TransactionHash: fmtHash(hash),
+		Transaction:     Pass,
+		State:           Pass,
+		Evidence:        NotRequired,
+	}, tx, []TraceIntentLink{intent})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if decision.Result != Accept {
+		t.Fatalf("result = %s, reasons = %v; want ACCEPT", decision.Result, decision.Reasons)
+	}
+}
+
+func TestEvaluateWithTraceIntentAbstainsWhenLinkMissing(t *testing.T) {
+	_, tx := paymentFixture()
+	hash, err := tx.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decision, err := EvaluateWithTraceIntent(VerificationInput{
+		AgentID:         "validator-1",
+		TransactionHash: fmtHash(hash),
+		Transaction:     Pass,
+		State:           Pass,
+		Evidence:        NotRequired,
+	}, tx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if decision.Result != Abstain {
+		t.Fatalf("result = %s, reasons = %v; want ABSTAIN", decision.Result, decision.Reasons)
+	}
+}
+
+func TestFindIntentForTransactionRejectsAmbiguousLinks(t *testing.T) {
+	intent, tx := paymentFixture()
+	other := intent
+	other.RequestID = "different-request"
+
+	_, err := FindIntentForTransaction([]TraceIntentLink{intent, other}, tx)
+	if err == nil {
+		t.Fatal("FindIntentForTransaction() should reject ambiguous links")
+	}
+}
+
+func TestEvaluateWithTraceIntentRejectsMismatchedDecisionHash(t *testing.T) {
+	intent, tx := paymentFixture()
+	_, err := EvaluateWithTraceIntent(VerificationInput{
+		AgentID:         "validator-1",
+		TransactionHash: "not-the-transaction-hash",
+		Transaction:     Pass,
+		State:           Pass,
+		Evidence:        NotRequired,
+	}, tx, []TraceIntentLink{intent})
+	if err == nil {
+		t.Fatal("EvaluateWithTraceIntent() should reject a mismatched transaction hash")
+	}
+}
