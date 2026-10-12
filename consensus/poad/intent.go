@@ -84,6 +84,7 @@ func VerifyPaymentIntent(intent TraceIntentLink, tx transaction.Transaction) (Ch
 	if err != nil {
 		return Unknown, nil, fmt.Errorf("hash transaction for intent check: %w", err)
 	}
+
 	actualHash := fmt.Sprintf("%x", hash)
 
 	linked := false
@@ -103,6 +104,7 @@ func VerifyPaymentIntent(intent TraceIntentLink, tx transaction.Transaction) (Ch
 	if tx.TxType() != transaction.NormalTxType || len(tx.Data) != 0 {
 		reasons = append(reasons, "payment_transaction_type_mismatch")
 	}
+
 	if !strings.EqualFold(intent.ExpectedSender, fmt.Sprintf("0x%x", tx.Sender)) {
 		reasons = append(reasons, "payment_sender_mismatch")
 	}
@@ -110,6 +112,7 @@ func VerifyPaymentIntent(intent TraceIntentLink, tx transaction.Transaction) (Ch
 	if !strings.EqualFold(intent.ExpectedRecipient, fmt.Sprintf("0x%x", tx.Recipient)) {
 		reasons = append(reasons, "payment_recipient_mismatch")
 	}
+
 	if tx.Value == nil || tx.Value.Cmp(new(big.Int).SetUint64(intent.Amount)) != 0 {
 		reasons = append(reasons, "payment_amount_mismatch")
 	}
