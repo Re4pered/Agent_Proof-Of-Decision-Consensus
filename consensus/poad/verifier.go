@@ -17,12 +17,16 @@ func Evaluate(in VerificationInput) (Decision, error) {
 		return Decision{}, fmt.Errorf("transaction hash is required")
 	}
 
-	d := Decision{AgentID: in.AgentID, TransactionHash: in.TransactionHash,
-		PolicyVersion: DefaultPolicyVersion, Reasons: make([]string, 0, 4)}
+	d := Decision{
+		AgentID:        in.AgentID,
+		TransactionHash: in.TransactionHash,
+		PolicyVersion:  DefaultPolicyVersion,
+		Reasons:        make([]string, 0, 4),
+	}
 
 	checks := []struct {
-		name string
-		status CheckStatus
+		name     string
+		status   CheckStatus
 		optional bool
 	}{
 		{name: "transaction", status: in.Transaction},
