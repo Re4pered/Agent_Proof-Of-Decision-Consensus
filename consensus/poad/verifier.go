@@ -13,15 +13,16 @@ func Evaluate(in VerificationInput) (Decision, error) {
 	if strings.TrimSpace(in.AgentID) == "" {
 		return Decision{}, fmt.Errorf("agent ID is required")
 	}
+
 	if strings.TrimSpace(in.TransactionHash) == "" {
 		return Decision{}, fmt.Errorf("transaction hash is required")
 	}
 
 	d := Decision{
-		AgentID:        in.AgentID,
+		AgentID:         in.AgentID,
 		TransactionHash: in.TransactionHash,
-		PolicyVersion:  DefaultPolicyVersion,
-		Reasons:        make([]string, 0, 4),
+		PolicyVersion:   DefaultPolicyVersion,
+		Reasons:         make([]string, 0, 4),
 	}
 
 	checks := []struct {
