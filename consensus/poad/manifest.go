@@ -29,6 +29,7 @@ func LoadTraceIntentLinksVerified(reader io.Reader, expectedSHA256 string) ([]Tr
 
 	actual := sha256.Sum256(data)
 	actualHex := hex.EncodeToString(actual[:])
+
 	if !strings.EqualFold(expected, actualHex) {
 		return nil, fmt.Errorf("trace intent manifest SHA-256 mismatch")
 	}
