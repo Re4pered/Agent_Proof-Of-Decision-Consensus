@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
 )
@@ -27,6 +28,10 @@ func AttachBlockPoADMetadata(
 ) error {
 	if b == nil {
 		return fmt.Errorf("block is required")
+	}
+
+	if err := requireTransactionInBlock(b, finalization.TransactionHash); err != nil {
+		return fmt.Errorf("bind PoAD finalization to block transactions: %w", err)
 	}
 
 	stateRoot := hex.EncodeToString(b.StateRoot)
@@ -80,6 +85,10 @@ func VerifyBlockPoADMetadata(b *block.Block, registry *IdentityRegistry) error {
 		return fmt.Errorf("decode PoAD block envelope: %w", err)
 	}
 
+	if err := requireTransactionInBlock(b, envelope.Finalization.TransactionHash); err != nil {
+		return fmt.Errorf("bind committed PoAD finalization to block transactions: %w", err)
+	}
+
 	expectedRoot := hex.EncodeToString(b.StateRoot)
 	if err := VerifyBlockFinalization(
 		registry,
@@ -122,6 +131,31 @@ func equalBytes(a, b []byte) bool {
 	}
 
 	return true
+}
+
+
+func requireTransactionInBlock(b *block.Block, transactionHash string) error {
+	if b == nil {
+		return fmt.Errorf("block is required")
+	}
+
+	expected := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(transactionHash)), "0x")
+	if expected == "" {
+		return fmt.Errorf("transaction hash is required")
+	}
+
+	for i := range b.TxList {
+		hash, err := b.TxList[i].Hash()
+		if err != nil {
+			return fmt.Errorf("hash block transaction at index %d: %w", i, err)
+		}
+
+		if hex.EncodeToString(hash) == expected {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("PoAD transaction hash %q is not present in block", transactionHash)
 }
 
 // BlockMetadataValidator adapts the PoAD metadata verifier to the PBFT proposal hook.
