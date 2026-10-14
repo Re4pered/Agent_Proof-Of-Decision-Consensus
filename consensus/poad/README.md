@@ -187,3 +187,10 @@ policy. This is opt-in: unless configured, legacy transaction blocks without PoA
 remain accepted. The current block builder does not yet generate Agent decisions automatically,
 and the JSONL intent manifest is not yet fetched or authenticated by PBFT validators. Therefore
 this hook is the first proposal-validation integration seam, not a complete production deployment.
+
+
+PBFT catch-up now runs the same proposal validator on every received historical proposal
+before calling AddBlock. This closes a validation bypass where catch-up previously persisted
+blocks directly without applying transaction/state checks or the configured PoAD gate. It still
+assumes the node is configured with the correct trusted identity registry and PoAD policy before
+starting consensus.
