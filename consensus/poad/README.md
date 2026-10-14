@@ -169,3 +169,21 @@ transactions require PoAD. Blocks without PoAD metadata remain accepted by this 
 backward compatibility; an enforcement layer must explicitly reject missing metadata for
 transactions governed by a PoAD policy. Ordinary transaction and state-transition validation
 must remain mandatory.
+
+
+## PBFT proposal-validation hook (phase 9)
+
+Static and dynamic shard proposal validators now retain their ordinary chain.ValidateBlock
+check and then call the shared PoAD metadata gate. The gate rejects malformed or partial
+PoAD commitments, rejects a PoAD-bearing proposal when no verifier is configured, and can be
+configured to require PoAD metadata for transaction blocks. Dynamic-shard migration blocks
+are exempt from the transaction-only requirement, but any PoAD metadata they carry is still
+verified.
+
+After constructing a PBFT node, the caller can create a poad.BlockMetadataValidator backed by
+its trusted IdentityRegistry and pass it to Node.ConfigurePoADValidation before Start. Every
+validator must load the same authenticated registry snapshot and use the same required/optional
+policy. This is opt-in: unless configured, legacy transaction blocks without PoAD metadata
+remain accepted. The current block builder does not yet generate Agent decisions automatically,
+and the JSONL intent manifest is not yet fetched or authenticated by PBFT validators. Therefore
+this hook is the first proposal-validation integration seam, not a complete production deployment.
