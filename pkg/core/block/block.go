@@ -33,6 +33,8 @@ type Block struct {
 	Header
 	Body
 	MigrationOpt
+	// PoADData stores the finalization record and signed Agent decisions committed by PoADRoot.
+	PoADData []byte
 }
 
 // NewBlock creates a block with header, body and migrationOpt.
