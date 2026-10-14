@@ -68,3 +68,22 @@ A valid signature proves that the holder of the corresponding private key signed
 decision bytes. It does not prove that the transaction, state, intent, evidence, or hidden
 reasoning was evaluated correctly. These helpers are not yet wired into PBFT messages or
 block validation.
+
+
+## Agent identity and public-key registry (phase 5)
+
+`IdentityRegistry` binds each stable AgentID to an Ed25519 public key and tracks
+ACTIVE/REVOKED status plus a monotonically increasing key version.
+
+- `Register` rejects empty IDs, malformed keys, and duplicate IDs; it never silently overwrites an existing identity.
+- `Resolve` returns only active identities and returns a defensive copy of the key.
+- `Rotate` requires the currently registered private key to authorize the exact new key and current version. Successful rotation increments the version, making old rotation requests stale.
+- `Revoke` disables future decision verification. In this prototype, registration and revocation are trusted governance/bootstrap operations.
+- `IdentityRegistry.VerifyDecision` resolves the key from the registry and then verifies the signed decision; it does not accept a submitter-supplied public key.
+
+This registry is an in-memory prototype, not yet persistent or replicated across validators.
+Before consensus integration, define an authenticated, deterministic way to distribute registration,
+rotation, and revocation updates (for example, committed governance transactions or a versioned
+on-chain registry). Validators must agree on the same registry state at the same consensus height.
+Private keys are never stored in the registry. A valid signature authenticates the decision bytes,
+not the correctness of the decision or the truth of an Agent's reasoning.
