@@ -384,8 +384,13 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("catchup resp message not started")
 	}
 
-	// Add blocks.
+	// Validate every catch-up proposal before persisting it. Catch-up must enforce the
+	// same transaction/state and optional PoAD checks as the normal pre-prepare path.
 	for _, p := range crMsg.Proposals {
+		if err := n.iop.ValidateProposal(ctx, &p); err != nil {
+			return fmt.Errorf("validate catch-up proposal at height=%d: %w", p.Block.Number, err)
+		}
+
 		if err := n.bc.AddBlock(ctx, p.Block); err != nil {
 			return fmt.Errorf("add block failed, height=%d, err: %w", p.Block.Number, err)
 		}
