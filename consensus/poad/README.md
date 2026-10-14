@@ -123,3 +123,20 @@ This ledger is local memory only. It is not persisted, replicated, or committed 
 so different validators could diverge if they used it independently. Do not use it to select
 validators or alter consensus weights until reputation updates are derived from the same
 finalized block history and applied deterministically by all validators.
+
+
+## Decision-aware block finalization gate (phase 7)
+
+`PrepareBlockFinalization` re-verifies the signed Agent decisions through the identity
+registry and the cross-Agent agreement helper. It creates a finalization record only when
+an ACCEPT quorum is reached, and binds the record to the transaction hash, policy version,
+vote counts, a canonicalized SHA-256 digest of the signed decision set, and a supplied state
+root. The state root must come from the repository's ordinary deterministic execution and
+state-transition validation path; this helper does not execute transactions or calculate
+the root itself.
+
+`VerifyBlockFinalization` recomputes the quorum and decision-set digest rather than trusting
+the record's vote counters. This is still an isolated PoAD module: it is not wired into PBFT
+proposal/commit handling or the block data structure. Existing block, transaction, and
+state-transition checks must remain mandatory. The in-memory identity registry also means
+validators must first establish the same authenticated registry snapshot.
