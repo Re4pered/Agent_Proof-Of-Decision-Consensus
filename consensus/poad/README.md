@@ -136,7 +136,9 @@ state-transition validation path; this helper does not execute transactions or c
 the root itself.
 
 `VerifyBlockFinalization` recomputes the quorum and decision-set digest rather than trusting
-the record's vote counters. This is still an isolated PoAD module: it is not wired into PBFT
+the record's vote counters, and requires the caller to supply an independently validated
+expected state root so the record cannot authenticate its own state root. This is still an
+isolated PoAD module: it is not wired into PBFT
 proposal/commit handling or the block data structure. Existing block, transaction, and
 state-transition checks must remain mandatory. The in-memory identity registry also means
 validators must first establish the same authenticated registry snapshot.
