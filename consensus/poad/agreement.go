@@ -62,7 +62,10 @@ func AggregateSignedDecisions(
 		}
 
 		if decision.TransactionHash != transactionHash {
-			return AgreementSummary{}, fmt.Errorf("decision from %q references a different transaction", decision.AgentID)
+			return AgreementSummary{}, fmt.Errorf(
+				"decision from %q references a different transaction",
+				decision.AgentID,
+			)
 		}
 
 		if decision.PolicyVersion != policyVersion {
@@ -72,6 +75,7 @@ func AggregateSignedDecisions(
 		if _, exists := seen[decision.AgentID]; exists {
 			return AgreementSummary{}, fmt.Errorf("duplicate decision from AgentID %q", decision.AgentID)
 		}
+
 		seen[decision.AgentID] = struct{}{}
 
 		switch decision.Result {
