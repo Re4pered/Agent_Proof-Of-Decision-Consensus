@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
 )
 
 type fakePoADBlockValidator struct {
@@ -29,6 +30,19 @@ func TestValidatePoADProposalRequiresMetadataWhenConfigured(t *testing.T) {
 	b := block.NewBlock(block.Header{Type: block.TxBlockType}, block.Body{}, block.MigrationOpt{})
 	if err := validatePoADProposal(b, &fakePoADBlockValidator{}, true); err == nil {
 		t.Fatal("expected transaction proposal without PoAD metadata to be rejected")
+	}
+}
+
+
+func TestValidatePoADProposalRejectsMultiTransactionBlockWhenRequired(t *testing.T) {
+	b := block.NewBlock(
+		block.Header{Type: block.TxBlockType},
+		block.Body{TxList: []transaction.Transaction{{}, {}}},
+		block.MigrationOpt{},
+	)
+
+	if err := validatePoADProposal(b, &fakePoADBlockValidator{}, true); err == nil {
+		t.Fatal("expected required PoAD mode to reject a multi-transaction block")
 	}
 }
 
