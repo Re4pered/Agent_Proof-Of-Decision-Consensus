@@ -13,6 +13,8 @@ import (
 type Header struct {
 	ParentBlockHash []byte
 	StateRoot       []byte
+	// PoADRoot commits to the serialized PoAD finalization envelope when present.
+	PoADRoot        []byte
 	Number          uint64
 	Type            uint8
 	Miner           account.Address
