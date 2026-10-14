@@ -184,6 +184,7 @@ func (r *IdentityRegistry) Rotate(rotation KeyRotation) error {
 	if agentID == "" {
 		return fmt.Errorf("agent ID is required")
 	}
+
 	if len(rotation.NewPublicKey) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid new Ed25519 public key length")
 	}
