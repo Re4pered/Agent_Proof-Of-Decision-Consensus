@@ -133,7 +133,6 @@ func equalBytes(a, b []byte) bool {
 	return true
 }
 
-
 func requireTransactionInBlock(b *block.Block, transactionHash string) error {
 	if b == nil {
 		return fmt.Errorf("block is required")
