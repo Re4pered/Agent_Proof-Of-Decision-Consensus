@@ -87,3 +87,18 @@ rotation, and revocation updates (for example, committed governance transactions
 on-chain registry). Validators must agree on the same registry state at the same consensus height.
 Private keys are never stored in the registry. A valid signature authenticates the decision bytes,
 not the correctness of the decision or the truth of an Agent's reasoning.
+
+
+## Cross-Agent Agreement (phase 6)
+
+`AggregateSignedDecisions` verifies each Agent decision through the trusted identity registry,
+requires all votes to reference the same transaction hash and policy version, rejects duplicate
+AgentIDs, and applies an explicit vote threshold. It returns ACCEPT or REJECT only when the
+corresponding threshold is reached; otherwise it returns ABSTAIN. If both thresholds are reached
+under an improperly configured threshold, it abstains with `conflicting_quorums`.
+
+The threshold is an input to this helper, not a claim that a particular committee size or
+threshold tolerates Byzantine faults. A deployment must define authenticated committee membership,
+a consistent registry snapshot, and a threshold justified by its fault model. This helper does
+not replace PBFT, is not yet wired into proposal validation, and cannot establish the truth of
+an Agent's reasoning.
