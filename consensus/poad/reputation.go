@@ -98,10 +98,10 @@ func (l *ReputationLedger) ApplyFinalizedDecision(
 		record = ReputationRecord{AgentID: decision.AgentID, Score: l.config.InitialScore}
 	}
 
-	switch {
-	case decision.Result == Abstain:
+	switch decision.Result {
+	case Abstain:
 		// Abstaining is neutral: it neither rewards nor punishes the Agent.
-	case decision.Result == finalizedResult:
+	case finalizedResult:
 		record.Score = increaseScore(record.Score, l.config.Reward, l.config.MaxScore)
 	default:
 		record.Score = decreaseScore(record.Score, l.config.Penalty, l.config.MinScore)
