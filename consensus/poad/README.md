@@ -150,3 +150,22 @@ changes. It checks for duplicate/replayed events before mutating the ledger, so 
 batch cannot leave a partial update. This strengthens the local prototype's update boundary;
 it does not make the ledger persistent or replicated, and the configured minority-vote penalty
 remains an experimental policy rather than evidence of malicious intent.
+
+
+## Block-bound PoAD evidence (phase 8)
+
+The block header now has an optional PoADRoot, and the serialized block carries PoADData.
+AttachBlockPoADMetadata verifies the signed decision quorum against the block's state root,
+canonically orders the decision records, serializes the finalization envelope, and places its
+SHA-256 commitment in the header. Because the header is hashed by the existing block-header
+hash function, changing PoADRoot changes the block hash. VerifyBlockPoADMetadata checks the
+commitment, canonical encoding, registered signatures, quorum, and state-root binding.
+
+This is a data-model and verification-helper step, not yet runtime PBFT enforcement. The
+current static/dynamic proposal validators still call the ordinary chain block validator and
+do not invoke VerifyBlockPoADMetadata. Before making PoAD mandatory in PBFT, the network needs
+an authenticated, replicated Agent identity registry and a configuration/policy for which
+transactions require PoAD. Blocks without PoAD metadata remain accepted by this helper for
+backward compatibility; an enforcement layer must explicitly reject missing metadata for
+transactions governed by a PoAD policy. Ordinary transaction and state-transition validation
+must remain mandatory.
