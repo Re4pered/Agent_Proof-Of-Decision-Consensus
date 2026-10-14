@@ -102,3 +102,24 @@ threshold tolerates Byzantine faults. A deployment must define authenticated com
 a consistent registry snapshot, and a threshold justified by its fault model. This helper does
 not replace PBFT, is not yet wired into proposal validation, and cannot establish the truth of
 an Agent's reasoning.
+
+
+## Reputation evolution (phase 7)
+
+`ReputationLedger` is a deterministic in-memory prototype for updating Agent scores after
+a transaction receives a finalized ACCEPT or REJECT outcome. A vote matching the finalized
+outcome earns the configured reward, a conflicting ACCEPT/REJECT vote incurs the configured
+penalty, and ABSTAIN is neutral. Scores are clamped to configured bounds, and the ledger
+rejects a repeated update for the same AgentID, transaction hash, and policy version.
+
+The scoring values are explicit configuration, not learned or experimentally validated
+parameters. A mismatch with the finalized result is not, by itself, proof of maliciousness:
+an honest minority can disagree, and a faulty or colluding quorum can finalize the wrong
+outcome. Any production design should distinguish malicious behavior from good-faith
+disagreement, define an auditable appeal/evidence policy, and evaluate reward/penalty
+settings experimentally.
+
+This ledger is local memory only. It is not persisted, replicated, or committed with blocks,
+so different validators could diverge if they used it independently. Do not use it to select
+validators or alter consensus weights until reputation updates are derived from the same
+finalized block history and applied deterministically by all validators.
