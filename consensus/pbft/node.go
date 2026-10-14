@@ -387,6 +387,10 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 	// Validate every catch-up proposal before persisting it. Catch-up must enforce the
 	// same transaction/state and optional PoAD checks as the normal pre-prepare path.
 	for _, p := range crMsg.Proposals {
+		if p.Block == nil {
+			return fmt.Errorf("catch-up proposal block is required")
+		}
+
 		if err := n.iop.ValidateProposal(ctx, &p); err != nil {
 			return fmt.Errorf("validate catch-up proposal at height=%d: %w", p.Block.Number, err)
 		}
