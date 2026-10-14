@@ -124,7 +124,6 @@ func equalBytes(a, b []byte) bool {
 	return true
 }
 
-
 // BlockMetadataValidator adapts the PoAD metadata verifier to the PBFT proposal hook.
 type BlockMetadataValidator struct {
 	registry *IdentityRegistry
