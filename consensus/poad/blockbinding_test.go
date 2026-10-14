@@ -2,28 +2,44 @@ package poad
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/account"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
 )
 
 func buildPoADTestBlock(t *testing.T, registry *IdentityRegistry) (*block.Block, []SignedDecision, BlockFinalizationRecord) {
 	t.Helper()
 
+	tx := transaction.Transaction{
+		Sender:      account.Address{1},
+		Recipient:   account.Address{2},
+		Value:       big.NewInt(1),
+		PriorityFee: big.NewInt(0),
+		GasLimit:    21000,
+	}
+	txHashBytes, err := tx.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txHash := hex.EncodeToString(txHashBytes)
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, txHash, DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-2", Accept, txHash, DefaultPolicyVersion),
 	}
 	b := block.NewBlock(
 		block.Header{StateRoot: []byte{0x01, 0x02, 0x03}},
-		block.Body{},
+		block.Body{TxList: []transaction.Transaction{tx}},
 		block.MigrationOpt{},
 	)
 
 	record, err := PrepareBlockFinalization(
 		registry,
 		decisions,
-		"tx-1",
+		txHash,
 		DefaultPolicyVersion,
 		2,
 		hex.EncodeToString(b.StateRoot),
@@ -82,7 +98,7 @@ func TestAttachBlockPoADMetadataCanonicalizesDecisionOrder(t *testing.T) {
 	b1, decisions, record := buildPoADTestBlock(t, registry)
 	b2 := block.NewBlock(
 		block.Header{StateRoot: append([]byte(nil), b1.StateRoot...)},
-		block.Body{},
+		block.Body{TxList: append([]transaction.Transaction(nil), b1.TxList...)},
 		block.MigrationOpt{},
 	)
 
@@ -97,5 +113,15 @@ func TestAttachBlockPoADMetadataCanonicalizesDecisionOrder(t *testing.T) {
 
 	if !equalBytes(b1.PoADRoot, b2.PoADRoot) {
 		t.Fatal("canonical PoAD commitment should not depend on decision input order")
+	}
+}
+
+func TestAttachBlockPoADMetadataRejectsTransactionNotInBlock(t *testing.T) {
+	registry := NewIdentityRegistry()
+	b, decisions, record := buildPoADTestBlock(t, registry)
+	record.TransactionHash = "deadbeef"
+
+	if err := AttachBlockPoADMetadata(b, registry, decisions, record); err == nil {
+		t.Fatal("expected finalization for a transaction outside the block to be rejected")
 	}
 }
