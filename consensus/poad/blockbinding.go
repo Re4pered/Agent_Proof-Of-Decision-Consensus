@@ -123,3 +123,27 @@ func equalBytes(a, b []byte) bool {
 
 	return true
 }
+
+ 
+// BlockMetadataValidator adapts the PoAD metadata verifier to the PBFT proposal hook.
+type BlockMetadataValidator struct {
+	registry *IdentityRegistry
+}
+
+// NewBlockMetadataValidator creates a validator backed by the supplied trusted identity registry.
+func NewBlockMetadataValidator(registry *IdentityRegistry) (*BlockMetadataValidator, error) {
+	if registry == nil {
+		return nil, fmt.Errorf("identity registry is required")
+	}
+
+	return &BlockMetadataValidator{registry: registry}, nil
+}
+
+// ValidatePoADBlock verifies the block's committed Agent decision envelope.
+func (v *BlockMetadataValidator) ValidatePoADBlock(b *block.Block) error {
+	if v == nil || v.registry == nil {
+		return fmt.Errorf("PoAD metadata validator is not configured")
+	}
+
+	return VerifyBlockPoADMetadata(b, v.registry)
+}
