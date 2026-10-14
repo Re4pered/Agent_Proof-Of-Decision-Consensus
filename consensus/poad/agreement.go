@@ -86,7 +86,11 @@ func AggregateSignedDecisions(
 		case Abstain:
 			summary.AbstainVotes++
 		default:
-			return AgreementSummary{}, fmt.Errorf("decision from %q has invalid result %q", decision.AgentID, decision.Result)
+			return AgreementSummary{}, fmt.Errorf(
+				"decision from %q has invalid result %q",
+				decision.AgentID,
+				decision.Result,
+			)
 		}
 	}
 
