@@ -138,7 +138,7 @@ func (l *ReputationLedger) ApplyFinalizedDecisions(
 			return nil, fmt.Errorf("agent ID is required")
 		}
 
-		eventKeys[i] = decision.AgentID + "\\x00" + decision.TransactionHash + "\\x00" + decision.PolicyVersion
+		eventKeys[i] = decision.AgentID + "\x00" + decision.TransactionHash + "\x00" + decision.PolicyVersion
 	}
 
 	l.mu.Lock()
