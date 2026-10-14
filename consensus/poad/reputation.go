@@ -151,6 +151,7 @@ func (l *ReputationLedger) ApplyFinalizedDecisions(
 		}
 
 		seen[eventKey] = struct{}{}
+
 		if _, exists := l.processed[eventKey]; exists {
 			return nil, fmt.Errorf("reputation event already applied for AgentID %q", decisions[i].Decision.AgentID)
 		}
@@ -159,6 +160,7 @@ func (l *ReputationLedger) ApplyFinalizedDecisions(
 	updated := make([]ReputationRecord, len(decisions))
 	for i, signed := range decisions {
 		decision := signed.Decision
+
 		record, exists := l.records[decision.AgentID]
 		if !exists {
 			record = ReputationRecord{AgentID: decision.AgentID, Score: l.config.InitialScore}
