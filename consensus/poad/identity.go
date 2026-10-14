@@ -78,6 +78,7 @@ func (r *IdentityRegistry) Resolve(agentID string) (ed25519.PublicKey, error) {
 	if !exists {
 		return nil, fmt.Errorf("unknown agent identity %q", agentID)
 	}
+
 	if identity.Status != IdentityActive {
 		return nil, fmt.Errorf("agent identity %q is not active", agentID)
 	}
@@ -126,10 +127,10 @@ func (r *IdentityRegistry) Revoke(agentID string) error {
 // KeyRotation is an authorization to replace an Agent's public key. The current
 // key signs AgentID, current key version, and the proposed new public key.
 type KeyRotation struct {
-	AgentID        string             `json:"agent_id"`
-	CurrentVersion uint64             `json:"current_version"`
+	AgentID        string            `json:"agent_id"`
+	CurrentVersion uint64            `json:"current_version"`
 	NewPublicKey   ed25519.PublicKey `json:"new_public_key"`
-	Signature      []byte             `json:"signature"`
+	Signature      []byte            `json:"signature"`
 }
 
 type keyRotationPayload struct {
@@ -149,9 +150,11 @@ func SignKeyRotation(
 	if agentID == "" {
 		return KeyRotation{}, fmt.Errorf("agent ID is required")
 	}
+
 	if len(newPublicKey) != ed25519.PublicKeySize {
 		return KeyRotation{}, fmt.Errorf("invalid new Ed25519 public key length")
 	}
+
 	if len(currentPrivateKey) != ed25519.PrivateKeySize {
 		return KeyRotation{}, fmt.Errorf("invalid current Ed25519 private key length")
 	}
@@ -164,6 +167,7 @@ func SignKeyRotation(
 	if err != nil {
 		return KeyRotation{}, fmt.Errorf("marshal key rotation: %w", err)
 	}
+
 	return KeyRotation{
 		AgentID:        agentID,
 		CurrentVersion: currentVersion,
@@ -229,6 +233,7 @@ func (r *IdentityRegistry) VerifyDecision(signed SignedDecision) error {
 	if err != nil {
 		return err
 	}
+
 	return VerifyDecisionSignature(signed, publicKey, signed.Decision.AgentID)
 }
 
