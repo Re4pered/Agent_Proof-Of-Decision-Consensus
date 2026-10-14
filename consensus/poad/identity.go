@@ -47,6 +47,7 @@ func (r *IdentityRegistry) Register(agentID string, publicKey ed25519.PublicKey)
 	if agentID == "" {
 		return fmt.Errorf("agent ID is required")
 	}
+
 	if len(publicKey) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid Ed25519 public key length")
 	}
@@ -93,6 +94,7 @@ func (r *IdentityRegistry) Get(agentID string) (AgentIdentity, error) {
 	if !exists {
 		return AgentIdentity{}, fmt.Errorf("unknown agent identity %q", agentID)
 	}
+
 	identity.PublicKey = clonePublicKey(identity.PublicKey)
 
 	return identity, nil
@@ -110,12 +112,14 @@ func (r *IdentityRegistry) Revoke(agentID string) error {
 	if !exists {
 		return fmt.Errorf("unknown agent identity %q", agentID)
 	}
+
 	if identity.Status == IdentityRevoked {
 		return fmt.Errorf("agent identity %q is already revoked", agentID)
 	}
-	identity.Status = IdentityRevoked
 
+	identity.Status = IdentityRevoked
 	r.identities[agentID] = identity
+
 	return nil
 }
 
@@ -124,7 +128,7 @@ func (r *IdentityRegistry) Revoke(agentID string) error {
 type KeyRotation struct {
 	AgentID        string             `json:"agent_id"`
 	CurrentVersion uint64             `json:"current_version"`
-	NewPublicKey   ed25519.PublicKey  `json:"new_public_key"`
+	NewPublicKey   ed25519.PublicKey `json:"new_public_key"`
 	Signature      []byte             `json:"signature"`
 }
 
@@ -206,6 +210,7 @@ func (r *IdentityRegistry) Rotate(rotation KeyRotation) error {
 	if err != nil {
 		return fmt.Errorf("marshal key rotation: %w", err)
 	}
+
 	if !ed25519.Verify(identity.PublicKey, payload, rotation.Signature) {
 		return fmt.Errorf("invalid key rotation authorization")
 	}
@@ -213,6 +218,7 @@ func (r *IdentityRegistry) Rotate(rotation KeyRotation) error {
 	identity.PublicKey = clonePublicKey(rotation.NewPublicKey)
 	identity.KeyVersion++
 	r.identities[agentID] = identity
+
 	return nil
 }
 
@@ -233,6 +239,7 @@ func GenerateAgentKeyPair() (ed25519.PublicKey, ed25519.PrivateKey, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate Agent key pair: %w", err)
 	}
+
 	return publicKey, privateKey, nil
 }
 
