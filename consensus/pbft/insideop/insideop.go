@@ -27,6 +27,7 @@ func validatePoADProposal(b *block.Block, validator PoADBlockValidator, requireP
 	}
 
 	hasRoot := len(b.PoADRoot) > 0
+
 	hasData := len(b.PoADData) > 0
 	if !hasRoot && !hasData {
 		if requirePoAD && b.Type != block.MigrationBlockType {
