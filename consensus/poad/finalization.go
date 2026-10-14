@@ -81,9 +81,14 @@ func VerifyBlockFinalization(
 	registry *IdentityRegistry,
 	decisions []SignedDecision,
 	record BlockFinalizationRecord,
+	expectedStateRoot string,
 ) error {
-	if strings.TrimSpace(record.StateRoot) == "" {
-		return fmt.Errorf("state root is required")
+	if strings.TrimSpace(expectedStateRoot) == "" {
+		return fmt.Errorf("expected state root is required")
+	}
+
+	if record.StateRoot != expectedStateRoot {
+		return fmt.Errorf("finalization state root does not match independently validated state root")
 	}
 
 	expected, err := PrepareBlockFinalization(
