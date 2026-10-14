@@ -194,3 +194,11 @@ before calling AddBlock. This closes a validation bypass where catch-up previous
 blocks directly without applying transaction/state checks or the configured PoAD gate. It still
 assumes the node is configured with the correct trusted identity registry and PoAD policy before
 starting consensus.
+
+
+Transaction binding limitation: the current finalization envelope covers one PoAD transaction hash.
+When strict PoAD mode is enabled, PBFT therefore rejects transaction blocks containing anything
+other than exactly one transaction; this prevents a block from using one accepted decision to
+implicitly cover unrelated transactions. Optional mode can still accept legacy or multi-transaction
+blocks without PoAD, so it should not be described as enforcing intent checks on every transaction.
+Supporting multiple PoAD-governed transactions per block requires a per-transaction finalization list.
