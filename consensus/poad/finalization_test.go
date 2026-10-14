@@ -28,7 +28,7 @@ func TestPrepareAndVerifyBlockFinalization(t *testing.T) {
 		t.Fatalf("unexpected finalization record: %+v", record)
 	}
 
-	if err := VerifyBlockFinalization(registry, decisions, record); err != nil {
+	if err := VerifyBlockFinalization(registry, decisions, record, "state-root-123"); err != nil {
 		t.Fatalf("expected record to verify: %v", err)
 	}
 }
@@ -89,7 +89,7 @@ func TestVerifyBlockFinalizationRejectsTamperedRecord(t *testing.T) {
 	}
 
 	record.StateRoot = "tampered-root"
-	if err := VerifyBlockFinalization(registry, decisions, record); err == nil {
+	if err := VerifyBlockFinalization(registry, decisions, record, "state-root-123"); err == nil {
 		t.Fatal("expected a tampered state root to be rejected")
 	}
 }
