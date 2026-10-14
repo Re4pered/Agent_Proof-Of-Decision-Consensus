@@ -48,8 +48,6 @@ type Node struct {
 	pbftMsgHandler map[string]messageHandleFunc
 }
 
-
-
 // ConfigurePoADValidation installs the proposal-level PoAD verifier.
 // Call this after NewPBFTNode and before Start. Every validator must use the same
 // authenticated identity-registry snapshot and the same requirePoAD policy.
