@@ -50,7 +50,10 @@ func PrepareBlockFinalization(
 	}
 
 	if summary.Result != Accept {
-		return BlockFinalizationRecord{}, fmt.Errorf("cannot finalize transaction without ACCEPT quorum: %s", summary.Result)
+		return BlockFinalizationRecord{}, fmt.Errorf(
+			"cannot finalize transaction without ACCEPT quorum: %s",
+			summary.Result,
+		)
 	}
 
 	digest, err := decisionSetDigest(decisions)
