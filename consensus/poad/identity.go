@@ -187,6 +187,7 @@ func (r *IdentityRegistry) Rotate(rotation KeyRotation) error {
 	if len(rotation.NewPublicKey) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid new Ed25519 public key length")
 	}
+
 	if len(rotation.Signature) != ed25519.SignatureSize {
 		return fmt.Errorf("invalid key rotation signature length")
 	}
@@ -198,6 +199,7 @@ func (r *IdentityRegistry) Rotate(rotation KeyRotation) error {
 	if !exists {
 		return fmt.Errorf("unknown agent identity %q", agentID)
 	}
+
 	if identity.Status != IdentityActive {
 		return fmt.Errorf("agent identity %q is not active", agentID)
 	}
