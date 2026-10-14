@@ -202,3 +202,14 @@ other than exactly one transaction; this prevents a block from using one accepte
 implicitly cover unrelated transactions. Optional mode can still accept legacy or multi-transaction
 blocks without PoAD, so it should not be described as enforcing intent checks on every transaction.
 Supporting multiple PoAD-governed transactions per block requires a per-transaction finalization list.
+
+
+### Remaining state-root validation limitation
+
+The PBFT adapter currently binds the PoAD finalization record to the state root declared in the
+block header. It does not independently recompute that state root. In this repository, the current
+chain.ValidateBlock implementation checks the transaction root, bloom filter, and migration root,
+but does not independently recompute and compare the resulting state root. Consequently, this
+integration step authenticates and commits the Agent decision envelope, but it does not yet prove
+that the declared state root is the deterministic result of executing the block. This base-chain
+validation gap must be addressed before treating the integrated path as production-secure.
