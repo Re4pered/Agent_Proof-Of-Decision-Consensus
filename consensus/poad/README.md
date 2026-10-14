@@ -142,3 +142,11 @@ isolated PoAD module: it is not wired into PBFT
 proposal/commit handling or the block data structure. Existing block, transaction, and
 state-transition checks must remain mandatory. The in-memory identity registry also means
 validators must first establish the same authenticated registry snapshot.
+
+
+The batch API `ApplyFinalizedDecisions` now verifies the signed decision set and finalization
+record (including an independently supplied expected state root) before applying any score
+changes. It checks for duplicate/replayed events before mutating the ledger, so a rejected
+batch cannot leave a partial update. This strengthens the local prototype's update boundary;
+it does not make the ledger persistent or replicated, and the configured minority-vote penalty
+remains an experimental policy rather than evidence of malicious intent.
