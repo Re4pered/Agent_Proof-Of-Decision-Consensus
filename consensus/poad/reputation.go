@@ -114,6 +114,77 @@ func (l *ReputationLedger) ApplyFinalizedDecision(
 	return record, nil
 }
 
+// ApplyFinalizedDecisions verifies the signed decision set and finalization record before
+// atomically applying reputation updates for all participating Agents. The state root must
+// already have been independently validated by the caller. This local ledger is not replicated.
+func (l *ReputationLedger) ApplyFinalizedDecisions(
+	registry *IdentityRegistry,
+	decisions []SignedDecision,
+	finalization BlockFinalizationRecord,
+	expectedStateRoot string,
+) ([]ReputationRecord, error) {
+	if l == nil {
+		return nil, fmt.Errorf("reputation ledger is required")
+	}
+
+	if err := VerifyBlockFinalization(registry, decisions, finalization, expectedStateRoot); err != nil {
+		return nil, fmt.Errorf("verify block finalization before reputation update: %w", err)
+	}
+
+	eventKeys := make([]string, len(decisions))
+	for i, signed := range decisions {
+		decision := signed.Decision
+		if strings.TrimSpace(decision.AgentID) == "" {
+			return nil, fmt.Errorf("agent ID is required")
+		}
+
+		eventKeys[i] = decision.AgentID + "\\x00" + decision.TransactionHash + "\\x00" + decision.PolicyVersion
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	seen := make(map[string]struct{}, len(eventKeys))
+	for i, eventKey := range eventKeys {
+		if _, exists := seen[eventKey]; exists {
+			return nil, fmt.Errorf("duplicate reputation event for AgentID %q", decisions[i].Decision.AgentID)
+		}
+
+		seen[eventKey] = struct{}{}
+		if _, exists := l.processed[eventKey]; exists {
+			return nil, fmt.Errorf("reputation event already applied for AgentID %q", decisions[i].Decision.AgentID)
+		}
+	}
+
+	updated := make([]ReputationRecord, len(decisions))
+	for i, signed := range decisions {
+		decision := signed.Decision
+		record, exists := l.records[decision.AgentID]
+		if !exists {
+			record = ReputationRecord{AgentID: decision.AgentID, Score: l.config.InitialScore}
+		}
+
+		switch decision.Result {
+		case Abstain:
+			// Abstention is neutral.
+		case finalization.Result:
+			record.Score = increaseScore(record.Score, l.config.Reward, l.config.MaxScore)
+		default:
+			record.Score = decreaseScore(record.Score, l.config.Penalty, l.config.MinScore)
+		}
+
+		record.Updates++
+		updated[i] = record
+	}
+
+	for i, signed := range decisions {
+		l.records[signed.Decision.AgentID] = updated[i]
+		l.processed[eventKeys[i]] = struct{}{}
+	}
+
+	return updated, nil
+}
+
 // Get returns the current record for an Agent, or false when no finalized event was applied.
 func (l *ReputationLedger) Get(agentID string) (ReputationRecord, bool) {
 	if l == nil {
