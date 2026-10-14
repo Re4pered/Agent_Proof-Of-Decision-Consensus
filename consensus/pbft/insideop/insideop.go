@@ -26,6 +26,10 @@ func validatePoADProposal(b *block.Block, validator PoADBlockValidator, requireP
 		return fmt.Errorf("proposal block is required")
 	}
 
+	if requirePoAD && b.Type != block.MigrationBlockType && len(b.TxList) != 1 {
+		return fmt.Errorf("required PoAD mode currently supports exactly one transaction per block")
+	}
+
 	hasRoot := len(b.PoADRoot) > 0
 
 	hasData := len(b.PoADData) > 0
