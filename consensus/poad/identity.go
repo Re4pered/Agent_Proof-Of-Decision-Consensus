@@ -20,10 +20,10 @@ const (
 // AgentIdentity binds one stable AgentID to its current Ed25519 public key.
 // KeyVersion increases whenever the key is rotated.
 type AgentIdentity struct {
-	AgentID    string         `json:"agent_id"`
+	AgentID    string            `json:"agent_id"`
 	PublicKey  ed25519.PublicKey `json:"public_key"`
-	Status     IdentityStatus `json:"status"`
-	KeyVersion uint64         `json:"key_version"`
+	Status     IdentityStatus    `json:"status"`
+	KeyVersion uint64            `json:"key_version"`
 }
 
 // IdentityRegistry is an in-memory prototype for trusted AgentID-to-key binding.
@@ -43,6 +43,7 @@ func NewIdentityRegistry() *IdentityRegistry {
 // Register adds a new AgentID. Existing IDs cannot be silently overwritten.
 func (r *IdentityRegistry) Register(agentID string, publicKey ed25519.PublicKey) error {
 	agentID = strings.TrimSpace(agentID)
+
 	if agentID == "" {
 		return fmt.Errorf("agent ID is required")
 	}
@@ -63,6 +64,7 @@ func (r *IdentityRegistry) Register(agentID string, publicKey ed25519.PublicKey)
 		Status:     IdentityActive,
 		KeyVersion: 1,
 	}
+
 	return nil
 }
 
@@ -78,6 +80,7 @@ func (r *IdentityRegistry) Resolve(agentID string) (ed25519.PublicKey, error) {
 	if identity.Status != IdentityActive {
 		return nil, fmt.Errorf("agent identity %q is not active", agentID)
 	}
+
 	return clonePublicKey(identity.PublicKey), nil
 }
 
@@ -91,6 +94,7 @@ func (r *IdentityRegistry) Get(agentID string) (AgentIdentity, error) {
 		return AgentIdentity{}, fmt.Errorf("unknown agent identity %q", agentID)
 	}
 	identity.PublicKey = clonePublicKey(identity.PublicKey)
+
 	return identity, nil
 }
 
@@ -98,6 +102,7 @@ func (r *IdentityRegistry) Get(agentID string) (AgentIdentity, error) {
 // governance operation; production use needs an agreed and auditable authorization path.
 func (r *IdentityRegistry) Revoke(agentID string) error {
 	agentID = strings.TrimSpace(agentID)
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -109,6 +114,7 @@ func (r *IdentityRegistry) Revoke(agentID string) error {
 		return fmt.Errorf("agent identity %q is already revoked", agentID)
 	}
 	identity.Status = IdentityRevoked
+
 	r.identities[agentID] = identity
 	return nil
 }
@@ -129,7 +135,12 @@ type keyRotationPayload struct {
 }
 
 // SignKeyRotation authorizes a key change using the currently registered private key.
-func SignKeyRotation(agentID string, currentVersion uint64, newPublicKey ed25519.PublicKey, currentPrivateKey ed25519.PrivateKey) (KeyRotation, error) {
+func SignKeyRotation(
+	agentID string,
+	currentVersion uint64,
+	newPublicKey ed25519.PublicKey,
+	currentPrivateKey ed25519.PrivateKey,
+) (KeyRotation, error) {
 	agentID = strings.TrimSpace(agentID)
 	if agentID == "" {
 		return KeyRotation{}, fmt.Errorf("agent ID is required")
@@ -182,6 +193,7 @@ func (r *IdentityRegistry) Rotate(rotation KeyRotation) error {
 	if identity.Status != IdentityActive {
 		return fmt.Errorf("agent identity %q is not active", agentID)
 	}
+
 	if rotation.CurrentVersion != identity.KeyVersion {
 		return fmt.Errorf("stale key rotation version: got %d, want %d", rotation.CurrentVersion, identity.KeyVersion)
 	}
