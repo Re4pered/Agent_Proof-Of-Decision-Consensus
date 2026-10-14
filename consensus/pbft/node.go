@@ -48,6 +48,33 @@ type Node struct {
 	pbftMsgHandler map[string]messageHandleFunc
 }
 
+
+ 
+// ConfigurePoADValidation installs the proposal-level PoAD verifier.
+// Call this after NewPBFTNode and before Start. Every validator must use the same
+// authenticated identity-registry snapshot and the same requirePoAD policy.
+func (n *Node) ConfigurePoADValidation(
+	validator insideop.PoADBlockValidator,
+	requireForTransactionBlocks bool,
+) error {
+	if n == nil {
+		return fmt.Errorf("PBFT node is required")
+	}
+
+	if validator == nil {
+		return fmt.Errorf("PoAD block validator is required")
+	}
+
+	configurable, ok := n.iop.(insideop.PoADConfigurable)
+	if !ok {
+		return fmt.Errorf("shard operation does not support PoAD validation")
+	}
+
+	configurable.SetPoADValidation(validator, requireForTransactionBlocks)
+
+	return nil
+}
+
 // NewPBFTNode creates a new node running PBFT consensus with given configurations.
 func NewPBFTNode(
 	conn *network.ConnHandler,
