@@ -123,3 +123,100 @@ func TestNewReputationLedgerRejectsInvalidConfig(t *testing.T) {
 		}
 	}
 }
+
+
+func TestApplyFinalizedDecisionsUpdatesOnlyAfterVerifiedFinalization(t *testing.T) {
+	registry := NewIdentityRegistry()
+	decisions := []SignedDecision{
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-3", Abstain, "tx-1", DefaultPolicyVersion),
+	}
+	finalization, err := PrepareBlockFinalization(
+		registry,
+		decisions,
+		"tx-1",
+		DefaultPolicyVersion,
+		2,
+		"state-root-123",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ledger := newTestReputationLedger(t)
+	records, err := ledger.ApplyFinalizedDecisions(registry, decisions, finalization, "state-root-123")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(records) != 3 {
+		t.Fatalf("expected 3 reputation records, got %d", len(records))
+	}
+
+	if records[0].Score != 525 || records[1].Score != 525 || records[2].Score != 500 {
+		t.Fatalf("unexpected reputation scores: %+v", records)
+	}
+}
+
+func TestApplyFinalizedDecisionsRejectsInvalidStateRootWithoutPartialUpdates(t *testing.T) {
+	registry := NewIdentityRegistry()
+	decisions := []SignedDecision{
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
+	}
+	finalization, err := PrepareBlockFinalization(
+		registry,
+		decisions,
+		"tx-1",
+		DefaultPolicyVersion,
+		1,
+		"state-root-123",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ledger := newTestReputationLedger(t)
+	if _, err := ledger.ApplyFinalizedDecisions(registry, decisions, finalization, "wrong-root"); err == nil {
+		t.Fatal("expected invalid state root to be rejected")
+	}
+
+	if _, exists := ledger.Get("agent-1"); exists {
+		t.Fatal("reputation must not change when finalization verification fails")
+	}
+}
+
+func TestApplyFinalizedDecisionsRejectsReplayWithoutPartialUpdates(t *testing.T) {
+	registry := NewIdentityRegistry()
+	decisions := []SignedDecision{
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion),
+	}
+	finalization, err := PrepareBlockFinalization(
+		registry,
+		decisions,
+		"tx-1",
+		DefaultPolicyVersion,
+		2,
+		"state-root-123",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ledger := newTestReputationLedger(t)
+	if _, err := ledger.ApplyFinalizedDecisions(registry, decisions, finalization, "state-root-123"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ledger.ApplyFinalizedDecisions(registry, decisions, finalization, "state-root-123"); err == nil {
+		t.Fatal("expected replayed finalization to be rejected")
+	}
+
+	for _, agentID := range []string{"agent-1", "agent-2"} {
+		record, exists := ledger.Get(agentID)
+		if !exists || record.Score != 525 || record.Updates != 1 {
+			t.Fatalf("replayed finalization changed %s reputation: %+v", agentID, record)
+		}
+	}
+}
