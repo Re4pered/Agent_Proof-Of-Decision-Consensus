@@ -12,15 +12,15 @@ import (
 // BlockFinalizationRecord binds an accepted Agent decision quorum to a transaction
 // and the deterministic state root produced by the ordinary execution path.
 type BlockFinalizationRecord struct {
-	TransactionHash    string `json:"transaction_hash"`
-	PolicyVersion      string `json:"policy_version"`
-	Result             Result `json:"result"`
-	StateRoot          string `json:"state_root"`
-	AcceptVotes        int    `json:"accept_votes"`
-	RejectVotes        int    `json:"reject_votes"`
-	AbstainVotes       int    `json:"abstain_votes"`
-	RequiredVotes      int    `json:"required_votes"`
-	DecisionSetSHA256  string `json:"decision_set_sha256"`
+	TransactionHash   string `json:"transaction_hash"`
+	PolicyVersion     string `json:"policy_version"`
+	Result            Result `json:"result"`
+	StateRoot         string `json:"state_root"`
+	AcceptVotes       int    `json:"accept_votes"`
+	RejectVotes       int    `json:"reject_votes"`
+	AbstainVotes      int    `json:"abstain_votes"`
+	RequiredVotes     int    `json:"required_votes"`
+	DecisionSetSHA256 string `json:"decision_set_sha256"`
 }
 
 // PrepareBlockFinalization creates a record only when authenticated Agent decisions
