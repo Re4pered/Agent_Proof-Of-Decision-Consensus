@@ -213,3 +213,25 @@ but does not independently recompute and compare the resulting state root. Conse
 integration step authenticates and commits the Agent decision envelope, but it does not yet prove
 that the declared state root is the deterministic result of executing the block. This base-chain
 validation gap must be addressed before treating the integrated path as production-secure.
+
+
+## Repeatable microbenchmarks (phase 10)
+
+The package includes Go benchmarks for signed decision aggregation and finalization-record
+verification across committee sizes 4, 7, 10, 13, 25, and 50. Key generation and registry
+setup are excluded from the timed section so the measurements focus on verification and
+aggregation overhead.
+
+Run them from the repository root:
+
+```sh
+go test ./consensus/poad -run '^$' -bench 'Benchmark(AggregateSignedDecisions|VerifyBlockFinalization)$' -benchmem
+```
+
+These are microbenchmarks of local cryptographic verification and aggregation helpers, not
+end-to-end blockchain TPS or PBFT network latency. They do not include LLM inference, network
+round trips, transaction execution, or independently recomputing the block state root. The
+committee threshold in the benchmark is a configurable (2f+1)-style threshold derived from
+the chosen committee size; production fault tolerance still requires an explicitly defined
+committee and Byzantine fault model. Record Go version, CPU, operating system, and repeated
+runs when reporting results in the thesis.
