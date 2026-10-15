@@ -48,6 +48,31 @@ type Node struct {
 	pbftMsgHandler map[string]messageHandleFunc
 }
 
+// ConfigurePoADValidation installs the proposal-level PoAD verifier.
+// Call this after NewPBFTNode and before Start. Every validator must use the same
+// authenticated identity-registry snapshot and the same requirePoAD policy.
+func (n *Node) ConfigurePoADValidation(
+	validator insideop.PoADBlockValidator,
+	requireForTransactionBlocks bool,
+) error {
+	if n == nil {
+		return fmt.Errorf("PBFT node is required")
+	}
+
+	if validator == nil {
+		return fmt.Errorf("PoAD block validator is required")
+	}
+
+	configurable, ok := n.iop.(insideop.PoADConfigurable)
+	if !ok {
+		return fmt.Errorf("shard operation does not support PoAD validation")
+	}
+
+	configurable.SetPoADValidation(validator, requireForTransactionBlocks)
+
+	return nil
+}
+
 // NewPBFTNode creates a new node running PBFT consensus with given configurations.
 func NewPBFTNode(
 	conn *network.ConnHandler,
@@ -359,8 +384,17 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("catchup resp message not started")
 	}
 
-	// Add blocks.
+	// Validate every catch-up proposal before persisting it. Catch-up must enforce the
+	// same transaction/state and optional PoAD checks as the normal pre-prepare path.
 	for _, p := range crMsg.Proposals {
+		if p.Block == nil {
+			return fmt.Errorf("catch-up proposal block is required")
+		}
+
+		if err := n.iop.ValidateProposal(ctx, &p); err != nil {
+			return fmt.Errorf("validate catch-up proposal at height=%d: %w", p.Block.Number, err)
+		}
+
 		if err := n.bc.AddBlock(ctx, p.Block); err != nil {
 			return fmt.Errorf("add block failed, height=%d, err: %w", p.Block.Number, err)
 		}

@@ -37,8 +37,10 @@ type DynamicShardOp struct {
 	tbo txblockop.TxBlockOp
 	mbo *migrationblockop.MigrationBlockOp
 
-	cfg config.ConsensusNodeCfg
-	lp  config.LocalParams
+	cfg           config.ConsensusNodeCfg
+	lp            config.LocalParams
+	poadValidator PoADBlockValidator
+	requirePoAD   bool
 }
 
 func NewDynamicShardOp(
@@ -74,9 +76,19 @@ func (c *DynamicShardOp) BuildProposal(ctx context.Context) (*message.Proposal, 
 	return c.buildPartitionProposal(ctx)
 }
 
+// SetPoADValidation configures optional PoAD verification. Call before starting PBFT.
+func (c *DynamicShardOp) SetPoADValidation(validator PoADBlockValidator, required bool) {
+	c.poadValidator = validator
+	c.requirePoAD = required
+}
+
 func (c *DynamicShardOp) ValidateProposal(ctx context.Context, proposal *message.Proposal) error {
 	if err := c.chain.ValidateBlock(ctx, proposal.Block); err != nil {
 		return fmt.Errorf("validate block failed: %w", err)
+	}
+
+	if err := validatePoADProposal(proposal.Block, c.poadValidator, c.requirePoAD); err != nil {
+		return err
 	}
 
 	return nil
