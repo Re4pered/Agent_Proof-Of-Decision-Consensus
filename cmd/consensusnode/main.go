@@ -78,7 +78,6 @@ func main() {
 		}
 
 		registry, registryErr := poad.LoadIdentityRegistryJSON(registryBytes, *poadRegistrySHA256)
-
 		if registryErr != nil {
 			log.Fatal(fmt.Errorf("load trusted PoAD identity registry: %w", registryErr))
 		}
