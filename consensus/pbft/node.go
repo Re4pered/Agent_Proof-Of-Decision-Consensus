@@ -384,14 +384,19 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("catchup resp message not started")
 	}
 
-	// Validate every catch-up proposal before persisting it. Catch-up must enforce the
-	// same transaction/state and optional PoAD checks as the normal pre-prepare path.
-	for _, p := range crMsg.Proposals {
-		if p.Block == nil {
-			return fmt.Errorf("catch-up proposal block is required")
-		}
+	// Preflight the entire response's chain structure before changing local state.
+	// Full block/state validation must then remain sequential: each block is checked
+	// against the parent state produced by the preceding AddBlock.
+	if err := validateCatchupChainStructure(crMsg.Proposals, n.bc.GetCurHeader()); err != nil {
+		return fmt.Errorf("preflight catch-up chain: %w", err)
+	}
 
-		if err := n.iop.ValidateProposal(ctx, &p); err != nil {
+	// Validate and persist in order so state-transition validation sees each
+	// preceding block. Chain.AddBlock is not atomic; a storage failure can still
+	// leave a partially applied batch, which requires a future storage-layer fix.
+	for i := range crMsg.Proposals {
+		p := &crMsg.Proposals[i]
+		if err := n.iop.ValidateProposal(ctx, p); err != nil {
 			return fmt.Errorf("validate catch-up proposal at height=%d: %w", p.Block.Number, err)
 		}
 
@@ -402,6 +407,48 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 
 	// Set catchup states.
 	n.pbftMeta.catchupOverAndReset(basicstructs.ViewSeq{View: crMsg.NextView, Seq: crMsg.NextSeq})
+
+	return nil
+}
+
+// validateCatchupChainStructure checks that a catch-up batch is contiguous with the
+// local chain before any block is persisted. State-transition validation remains
+// sequential and is performed by ValidateProposal immediately before each AddBlock.
+func validateCatchupChainStructure(proposals []message.Proposal, currentHeader block.Header) error {
+	expectedHeight := currentHeader.Number + 1
+
+	expectedParentHash, err := currentHeader.Hash()
+	if err != nil {
+		return fmt.Errorf("hash local catch-up parent: %w", err)
+	}
+
+	for i := range proposals {
+		proposal := &proposals[i]
+
+		if proposal.Block == nil {
+			return fmt.Errorf("catch-up proposal block is required at index=%d", i)
+		}
+
+		if proposal.Block.Number != expectedHeight {
+			return fmt.Errorf(
+				"catch-up block height mismatch at index=%d: got %d, want %d",
+				i,
+				proposal.Block.Number,
+				expectedHeight,
+			)
+		}
+
+		if !bytes.Equal(proposal.Block.ParentBlockHash, expectedParentHash) {
+			return fmt.Errorf("catch-up parent hash mismatch at height=%d", proposal.Block.Number)
+		}
+
+		expectedParentHash, err = proposal.Block.Hash()
+		if err != nil {
+			return fmt.Errorf("hash catch-up block header at height=%d: %w", proposal.Block.Number, err)
+		}
+
+		expectedHeight++
+	}
 
 	return nil
 }
@@ -479,6 +526,12 @@ func (n *Node) propose(ctx context.Context) error {
 	// If the proposal is nil, skip this propose operation.
 	if p == nil {
 		return nil
+	}
+
+	// The leader must apply exactly the same block and PoAD checks as followers
+	// before disseminating a proposal. A failed local validation must not enter PBFT.
+	if err := n.iop.ValidateProposal(ctx, p); err != nil {
+		return fmt.Errorf("validate local proposal before broadcast: %w", err)
 	}
 
 	// wrap and encode msg
