@@ -47,7 +47,24 @@ func TestChain(t *testing.T) {
 
 	b1 := generateBlockButNotAdd(t, bc)
 
-	// Add this block to the chain.
+	// A block must not be accepted when it declares a state root that does not
+	// match deterministic execution against the current parent state.
+	badStateRoot := *b1
+	badStateRoot.StateRoot = append([]byte(nil), b1.StateRoot...)
+	badStateRoot.StateRoot[0] ^= 0xff
+	require.ErrorContains(t, bc.ValidateBlock(context.Background(), &badStateRoot), "state root mismatch")
+
+	// The location trie commitment must also match the deterministic preview.
+	badLocationRoot := *b1
+	badLocationRoot.LocationRoot = append([]byte(nil), b1.LocationRoot...)
+	if len(badLocationRoot.LocationRoot) == 0 {
+		badLocationRoot.LocationRoot = []byte{0xff}
+	} else {
+		badLocationRoot.LocationRoot[0] ^= 0xff
+	}
+	require.ErrorContains(t, bc.ValidateBlock(context.Background(), &badLocationRoot), "location root mismatch")
+
+	// Add the original valid block to the chain.
 	validateAndAddBlock(t, bc, b1)
 
 	// The test to generate and add a migration block
