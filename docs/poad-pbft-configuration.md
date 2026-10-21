@@ -21,7 +21,7 @@ go run ./cmd/consensusnode \
   -poad-registry-sha256 <trusted-64-character-sha256>
 ```
 
-All validators in a shard must be provisioned with the same exact registry bytes, trusted digest, and `-poad-required` setting. Do not obtain the trusted digest from the same untrusted channel as the registry file. The registry file contains public keys only; never put Agent private keys in it.
+All validators in a shard must be provisioned with the same exact registry bytes, trusted digest, and `-poad-required` setting. Do not obtain the trusted digest from the same untrusted channel as the registry file. The registry file contains public keys only; never put Agent private keys in it. This is a static bootstrap snapshot, not a live replicated registry: adding, rotating, or revoking an Agent key requires an agreed snapshot update and coordinated rollout to every validator.
 
 Registry format:
 
