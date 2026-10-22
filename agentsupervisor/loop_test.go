@@ -53,6 +53,8 @@ func TestRunnerLoopProducesPerRoundOutputAndStableDIDs(t *testing.T) {
 	// Per-round plans exist.
 	for _, rr := range rounds {
 		require.FileExists(t, rr.PlanPath)
+		require.FileExists(t, rr.IntentManifestPath)
+		require.FileExists(t, rr.IntentManifestPath+".sha256")
 		require.FileExists(t, filepath.Join(rr.OutputDir, MetricsFileName))
 		require.FileExists(t, filepath.Join(rr.OutputDir, ActionTxMapFileName))
 	}

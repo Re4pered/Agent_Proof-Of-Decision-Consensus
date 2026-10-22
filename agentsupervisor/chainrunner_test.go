@@ -106,3 +106,33 @@ func TestChainRunnerClusterShape(t *testing.T) {
 	require.EqualValues(t, 2, shardNum)
 	require.EqualValues(t, 4, nodeNum)
 }
+
+func TestChainRunnerStagesPoADPaymentManifest(t *testing.T) {
+	c := newTestChainRunner(t)
+	roundDir := filepath.Join(c.WorkRoot, roundDirName(1))
+	require.NoError(t, os.MkdirAll(roundDir, 0o755))
+
+	manifestDir := t.TempDir()
+	require.NoError(t, writePoADPaymentManifest(manifestDir, []ActionTxLink{{
+		Seq: 1, Action: ActionPay, AgentID: "alice", Target: "bob", Amount: 7,
+		RequestID: "pay-7", TxHashes: []string{"deadbeef"},
+		ExpectedSender: "0x1111", ExpectedRecipient: "0x2222",
+	}}))
+	manifestPath := filepath.Join(manifestDir, PoADPaymentManifestFileName)
+	planPath := filepath.Join(roundDir, PlanFileName)
+	require.NoError(t, os.WriteFile(planPath, []byte("{}\\n"), 0o644))
+
+	chainDir := filepath.Join(roundDir, "chain")
+	require.NoError(t, os.MkdirAll(chainDir, 0o755))
+	_, _, _, err := c.prepare(chainDir, RoundSpec{
+		Round: 1, PlanPath: planPath, IntentManifestPath: manifestPath, TxCount: 1,
+	})
+	require.NoError(t, err)
+
+	staged, err := os.ReadFile(filepath.Join(chainDir, PoADPaymentManifestFileName))
+	require.NoError(t, err)
+	source, err := os.ReadFile(manifestPath)
+	require.NoError(t, err)
+	require.Equal(t, source, staged)
+	require.FileExists(t, filepath.Join(chainDir, PoADPaymentManifestDigestFileName))
+}

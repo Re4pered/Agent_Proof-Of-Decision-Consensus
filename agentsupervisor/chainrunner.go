@@ -2,6 +2,8 @@ package agentsupervisor
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -25,9 +28,10 @@ const defaultChainRunTimeout = 10 * time.Minute
 
 // RoundSpec describes one BlockEmulator-X execution of a produced plan.
 type RoundSpec struct {
-	Round    int
-	PlanPath string
-	TxCount  int
+	Round              int
+	PlanPath           string
+	IntentManifestPath string
+	TxCount            int
 }
 
 // ChainOutcome points at the artifacts a finished chain run left behind.
@@ -241,6 +245,16 @@ func (c *ChainRunner) prepare(chainDir string, spec RoundSpec) (string, string, 
 	logDir := filepath.Join(chainDir, "logs")
 	resultDir := filepath.Join(chainDir, "results")
 
+	// Carry the exact AgentSupervisor payment-intent manifest into the same
+	// isolated chain run as its transaction plan. The sidecar digest detects
+	// accidental corruption; deployments must still provision trusted registry
+	// digests and authenticate the original trace/manifest source.
+	if spec.IntentManifestPath != "" {
+		if err := copyPoADPaymentManifest(spec.IntentManifestPath, chainDir); err != nil {
+			return "", "", "", err
+		}
+	}
+
 	// Point every mutable path at the chain directory and switch the
 	// supervisor to replaying the produced plan.
 	setYAMLPath(doc, []string{"system", "log", "log_dir"}, logDir)
@@ -284,6 +298,36 @@ func (c *ChainRunner) prepare(chainDir string, spec RoundSpec) (string, string, 
 	}
 
 	return cfgPath, tablePath, resultDir, nil
+}
+
+
+func copyPoADPaymentManifest(sourcePath, chainDir string) error {
+	raw, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return fmt.Errorf("read AgentSupervisor PoAD payment manifest: %w", err)
+	}
+	actual := sha256.Sum256(raw)
+	actualHex := hex.EncodeToString(actual[:])
+
+	sourceDigestPath := sourcePath + ".sha256"
+	digestRaw, err := os.ReadFile(sourceDigestPath)
+	if err != nil {
+		return fmt.Errorf("read AgentSupervisor PoAD manifest digest: %w", err)
+	}
+	fields := strings.Fields(string(digestRaw))
+	if len(fields) == 0 || !strings.EqualFold(fields[0], actualHex) {
+		return fmt.Errorf("AgentSupervisor PoAD payment manifest digest mismatch")
+	}
+
+	targetPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+	if err := os.WriteFile(targetPath, raw, 0o644); err != nil {
+		return fmt.Errorf("stage PoAD payment manifest for chain run: %w", err)
+	}
+	targetDigest := actualHex + "  " + PoADPaymentManifestFileName + "\n"
+	if err := os.WriteFile(filepath.Join(chainDir, PoADPaymentManifestDigestFileName), []byte(targetDigest), 0o644); err != nil {
+		return fmt.Errorf("write staged PoAD payment manifest digest: %w", err)
+	}
+	return nil
 }
 
 func (c *ChainRunner) loadBaseConfig() (map[string]any, error) {

@@ -327,6 +327,9 @@ func (s *AgentSupervisor) WriteResult(dir string, result Result) error {
 	if err := writeActionTxMap(dir, s.links); err != nil {
 		return err
 	}
+	if err := writePoADPaymentManifest(dir, s.links); err != nil {
+		return err
+	}
 
 	return writeResult(dir, result)
 }
