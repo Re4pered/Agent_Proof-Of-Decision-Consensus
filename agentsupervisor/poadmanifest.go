@@ -15,7 +15,8 @@ const (
 	// PoADPaymentManifestFileName is the payment-only intent manifest consumed
 	// by the consensus runtime. It is derived from the same action-to-tx map
 	// that was written with the transaction plan.
-	PoADPaymentManifestFileName       = "poad_payment_intents.jsonl"
+	PoADPaymentManifestFileName = "poad_payment_intents.jsonl"
+
 	PoADPaymentManifestDigestFileName = PoADPaymentManifestFileName + ".sha256"
 )
 
@@ -51,6 +52,7 @@ func writePoADPaymentManifest(dir string, links []ActionTxLink) error {
 			_ = f.Close()
 			return fmt.Errorf("encode PoAD payment intent seq %d: %w", link.Seq, err)
 		}
+
 		if _, err := w.Write(append(b, '\n')); err != nil {
 			_ = f.Close()
 			return fmt.Errorf("write PoAD payment intent seq %d: %w", link.Seq, err)
@@ -61,6 +63,7 @@ func writePoADPaymentManifest(dir string, links []ActionTxLink) error {
 		_ = f.Close()
 		return fmt.Errorf("flush PoAD payment manifest: %w", err)
 	}
+
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("close PoAD payment manifest: %w", err)
 	}
@@ -69,6 +72,7 @@ func writePoADPaymentManifest(dir string, links []ActionTxLink) error {
 	if err != nil {
 		return fmt.Errorf("read PoAD payment manifest for digest: %w", err)
 	}
+
 	digest := sha256.Sum256(raw)
 
 	digestText := hex.EncodeToString(digest[:]) + "  " + PoADPaymentManifestFileName + "\n"
