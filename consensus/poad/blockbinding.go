@@ -159,7 +159,8 @@ func requireTransactionInBlock(b *block.Block, transactionHash string) error {
 
 // BlockMetadataValidator adapts the PoAD metadata verifier to the PBFT proposal hook.
 type BlockMetadataValidator struct {
-	registry *IdentityRegistry
+	registry    *IdentityRegistry
+	intentLinks []TraceIntentLink
 }
 
 // NewBlockMetadataValidator creates a validator backed by the supplied trusted identity registry.
@@ -171,11 +172,60 @@ func NewBlockMetadataValidator(registry *IdentityRegistry) (*BlockMetadataValida
 	return &BlockMetadataValidator{registry: registry}, nil
 }
 
-// ValidatePoADBlock verifies the block's committed Agent decision envelope.
+// NewBlockMetadataValidatorWithIntentLinks also binds each committed decision to a
+// verified AgentSupervisor payment-intent manifest.
+func NewBlockMetadataValidatorWithIntentLinks(
+	registry *IdentityRegistry,
+	links []TraceIntentLink,
+) (*BlockMetadataValidator, error) {
+	validator, err := NewBlockMetadataValidator(registry)
+	if err != nil {
+		return nil, err
+	}
+	if len(links) == 0 {
+		return nil, fmt.Errorf("at least one payment intent link is required")
+	}
+	validator.intentLinks = append([]TraceIntentLink(nil), links...)
+	return validator, nil
+}
+
+// ValidatePoADBlock verifies the committed Agent decision envelope and, when
+// configured, checks that its finalized transaction matches the payment intent.
 func (v *BlockMetadataValidator) ValidatePoADBlock(b *block.Block) error {
 	if v == nil || v.registry == nil {
 		return fmt.Errorf("PoAD metadata validator is not configured")
 	}
+	if err := VerifyBlockPoADMetadata(b, v.registry); err != nil {
+		return err
+	}
+	if len(v.intentLinks) == 0 || b == nil || len(b.PoADData) == 0 {
+		return nil
+	}
 
-	return VerifyBlockPoADMetadata(b, v.registry)
+	var envelope BlockPoADEnvelope
+	if err := json.Unmarshal(b.PoADData, &envelope); err != nil {
+		return fmt.Errorf("decode PoAD envelope for intent binding: %w", err)
+	}
+	for i := range b.TxList {
+		hash, err := b.TxList[i].Hash()
+		if err != nil {
+			return fmt.Errorf("hash transaction for intent binding: %w", err)
+		}
+		if !strings.EqualFold(hex.EncodeToString(hash), strings.TrimPrefix(strings.ToLower(envelope.Finalization.TransactionHash), "0x")) {
+			continue
+		}
+		intent, err := FindIntentForTransaction(v.intentLinks, b.TxList[i])
+		if err != nil {
+			return fmt.Errorf("bind finalized transaction to AgentSupervisor intent: %w", err)
+		}
+		status, reasons, err := VerifyPaymentIntent(intent, b.TxList[i])
+		if err != nil {
+			return fmt.Errorf("verify AgentSupervisor payment intent: %w", err)
+		}
+		if status != Pass {
+			return fmt.Errorf("AgentSupervisor payment intent did not pass: %s", strings.Join(reasons, ","))
+		}
+		return nil
+	}
+	return fmt.Errorf("finalized transaction not found while binding AgentSupervisor intent")
 }
