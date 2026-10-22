@@ -182,10 +182,12 @@ func NewBlockMetadataValidatorWithIntentLinks(
 	if err != nil {
 		return nil, err
 	}
+
 	if len(links) == 0 {
 		return nil, fmt.Errorf("at least one payment intent link is required")
 	}
 	validator.intentLinks = append([]TraceIntentLink(nil), links...)
+
 	return validator, nil
 }
 
@@ -195,9 +197,11 @@ func (v *BlockMetadataValidator) ValidatePoADBlock(b *block.Block) error {
 	if v == nil || v.registry == nil {
 		return fmt.Errorf("PoAD metadata validator is not configured")
 	}
+
 	if err := VerifyBlockPoADMetadata(b, v.registry); err != nil {
 		return err
 	}
+
 	if len(v.intentLinks) == 0 || b == nil || len(b.PoADData) == 0 {
 		return nil
 	}
@@ -206,26 +210,33 @@ func (v *BlockMetadataValidator) ValidatePoADBlock(b *block.Block) error {
 	if err := json.Unmarshal(b.PoADData, &envelope); err != nil {
 		return fmt.Errorf("decode PoAD envelope for intent binding: %w", err)
 	}
+
 	for i := range b.TxList {
 		hash, err := b.TxList[i].Hash()
 		if err != nil {
 			return fmt.Errorf("hash transaction for intent binding: %w", err)
 		}
-		if !strings.EqualFold(hex.EncodeToString(hash), strings.TrimPrefix(strings.ToLower(envelope.Finalization.TransactionHash), "0x")) {
+
+		finalizedHash := strings.TrimPrefix(strings.ToLower(envelope.Finalization.TransactionHash), "0x")
+		if !strings.EqualFold(hex.EncodeToString(hash), finalizedHash) {
 			continue
 		}
+
 		intent, err := FindIntentForTransaction(v.intentLinks, b.TxList[i])
 		if err != nil {
 			return fmt.Errorf("bind finalized transaction to AgentSupervisor intent: %w", err)
 		}
+
 		status, reasons, err := VerifyPaymentIntent(intent, b.TxList[i])
 		if err != nil {
 			return fmt.Errorf("verify AgentSupervisor payment intent: %w", err)
 		}
+
 		if status != Pass {
 			return fmt.Errorf("AgentSupervisor payment intent did not pass: %s", strings.Join(reasons, ","))
 		}
 		return nil
 	}
+
 	return fmt.Errorf("finalized transaction not found while binding AgentSupervisor intent")
 }
