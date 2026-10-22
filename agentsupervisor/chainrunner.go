@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HuangLab-SYSU/block-emulator-x/supervisor/txsource/tracesource"
-
 	"gopkg.in/yaml.v3"
+
+	"github.com/HuangLab-SYSU/block-emulator-x/supervisor/txsource/tracesource"
 )
 
 // defaultChainRunTimeout bounds one whole chain run; the supervisor normally
