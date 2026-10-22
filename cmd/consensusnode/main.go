@@ -117,6 +117,7 @@ func main() {
 		} else {
 			poadValidator, err = poad.NewBlockMetadataValidator(registry)
 		}
+
 		if err != nil {
 			log.Fatal(fmt.Errorf("create PoAD block validator: %w", err))
 		}
