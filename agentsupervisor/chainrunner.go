@@ -64,6 +64,11 @@ type ChainRunner struct {
 	// NodeExitGrace is how long nodes may take to exit after the supervisor
 	// finished before they get killed.
 	NodeExitGrace time.Duration
+	// PoADRegistryPath and PoADRegistrySHA256 configure the trusted Agent identity snapshot.
+	PoADRegistryPath   string
+	PoADRegistrySHA256 string
+	// PoADRequired rejects transaction blocks unless signed PoAD metadata and intent links validate.
+	PoADRequired bool
 }
 
 // BinDirName hosts the cluster binaries inside the module root. A bare
@@ -173,14 +178,45 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		return nil, err
 	}
 
+	if c.PoADRequired && (c.PoADRegistryPath == "" || c.PoADRegistrySHA256 == "" || spec.IntentManifestPath == "") {
+		return nil, fmt.Errorf("required PoAD needs registry path/digest and an AgentSupervisor intent manifest")
+	}
+	if (c.PoADRegistryPath == "") != (c.PoADRegistrySHA256 == "") {
+		return nil, fmt.Errorf("PoAD registry path and SHA-256 digest must be configured together")
+	}
+
+	nodeArgs := []string{"-config", cfgPath, "-ip_table", tablePath}
+	if c.PoADRegistryPath != "" {
+		nodeArgs = append(nodeArgs,
+			"-poad-registry", c.PoADRegistryPath,
+			"-poad-registry-sha256", c.PoADRegistrySHA256,
+		)
+		if spec.IntentManifestPath != "" {
+			manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+			digestPath := manifestPath + ".sha256"
+			digestRaw, readErr := os.ReadFile(digestPath)
+			if readErr != nil {
+				return nil, fmt.Errorf("read staged PoAD intent manifest digest: %w", readErr)
+			}
+			digestFields := strings.Fields(string(digestRaw))
+			if len(digestFields) == 0 {
+				return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
+			}
+			nodeArgs = append(nodeArgs,
+				"-poad-intent-manifest", manifestPath,
+				"-poad-intent-manifest-sha256", digestFields[0],
+			)
+		}
+		if c.PoADRequired {
+			nodeArgs = append(nodeArgs, "-poad-required")
+		}
+	}
+
 	for shard := int64(0); shard < shardNum; shard++ {
 		for node := int64(0); node < nodeNum; node++ {
-			p, err := procs.start(nodeBin, logDir, fmt.Sprintf("node_s%d_n%d", shard, node),
-				"-shard_id", strconv.FormatInt(shard, 10),
-				"-node_id", strconv.FormatInt(node, 10),
-				"-config", cfgPath,
-				"-ip_table", tablePath,
-			)
+			args := append([]string(nil), nodeArgs...)
+			args = append(args, "-shard_id", strconv.FormatInt(shard, 10), "-node_id", strconv.FormatInt(node, 10))
+			p, err := procs.start(nodeBin, logDir, fmt.Sprintf("node_s%d_n%d", shard, node), args...)
 			if err != nil {
 				return nil, err
 			}
