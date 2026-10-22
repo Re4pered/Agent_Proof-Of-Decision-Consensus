@@ -105,9 +105,11 @@ func main() {
 			}
 			links, loadErr := poad.LoadTraceIntentLinksVerified(manifest, *poadIntentManifestSHA256)
 			closeErr := manifest.Close()
+
 			if loadErr != nil {
 				log.Fatal(fmt.Errorf("load trusted PoAD payment-intent manifest: %w", loadErr))
 			}
+
 			if closeErr != nil {
 				log.Fatal(fmt.Errorf("close PoAD payment-intent manifest: %w", closeErr))
 			}
@@ -146,7 +148,10 @@ func main() {
 			log.Fatal(fmt.Errorf("configure PoAD proposal validation: %w", err))
 		}
 
-		log.Printf("PoAD proposal validation configured: required=%t registry=%s intent_manifest=%s", *poadRequired, *poadRegistryPath, *poadIntentManifestPath)
+		log.Printf(
+			"PoAD proposal validation configured: required=%t registry=%s intent_manifest=%s",
+			*poadRequired, *poadRegistryPath, *poadIntentManifestPath,
+		)
 	} else {
 		log.Printf("PoAD proposal validation is optional and no identity registry is configured; legacy blocks without PoAD remain accepted")
 	}
