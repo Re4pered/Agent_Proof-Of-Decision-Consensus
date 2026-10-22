@@ -78,9 +78,11 @@ func main() {
 	if (*poadRegistryPath == "") != (*poadRegistrySHA256 == "") {
 		log.Fatal("-poad-registry and -poad-registry-sha256 must be provided together")
 	}
+
 	if (*poadIntentManifestPath == "") != (*poadIntentManifestSHA256 == "") {
 		log.Fatal("-poad-intent-manifest and -poad-intent-manifest-sha256 must be provided together")
 	}
+
 	if *poadIntentManifestPath != "" && *poadRegistryPath == "" {
 		log.Fatal("PoAD intent manifest validation requires a trusted -poad-registry")
 	}
@@ -103,6 +105,7 @@ func main() {
 			if openErr != nil {
 				log.Fatal(fmt.Errorf("open PoAD payment-intent manifest: %w", openErr))
 			}
+
 			links, loadErr := poad.LoadTraceIntentLinksVerified(manifest, *poadIntentManifestSHA256)
 			closeErr := manifest.Close()
 
@@ -113,6 +116,7 @@ func main() {
 			if closeErr != nil {
 				log.Fatal(fmt.Errorf("close PoAD payment-intent manifest: %w", closeErr))
 			}
+
 			poadValidator, err = poad.NewBlockMetadataValidatorWithIntentLinks(registry, links)
 		} else {
 			poadValidator, err = poad.NewBlockMetadataValidator(registry)
