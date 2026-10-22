@@ -121,7 +121,12 @@ func (r *Runner) Run(ctx context.Context) ([]RoundResult, error) {
 		}
 
 		if r.Chain != nil {
-			outcome, err := r.Chain.Run(ctx, RoundSpec{Round: round, PlanPath: rr.PlanPath, IntentManifestPath: rr.IntentManifestPath, TxCount: rr.TxCount})
+			outcome, err := r.Chain.Run(ctx, RoundSpec{
+				Round:              round,
+				PlanPath:           rr.PlanPath,
+				IntentManifestPath: rr.IntentManifestPath,
+				TxCount:            rr.TxCount,
+			})
 			if err != nil {
 				return rounds, fmt.Errorf("round %d: %w", round, err)
 			}
