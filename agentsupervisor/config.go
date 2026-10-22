@@ -79,7 +79,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 
 	if (cfg.Chain.PoADRegistryPath == "") != (cfg.Chain.PoADRegistrySHA256 == "") {
-		return Config{}, fmt.Errorf("chain.poad_registry_path and chain.poad_registry_sha256 must be configured together")
+		return Config{}, fmt.Errorf(
+			"chain.poad_registry_path and chain.poad_registry_sha256 must be configured together",
+		)
 	}
 
 	if cfg.Chain.PoADRequired && (!cfg.Chain.Enabled || cfg.Chain.PoADRegistryPath == "") {
