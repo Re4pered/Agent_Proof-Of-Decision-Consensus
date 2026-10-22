@@ -196,11 +196,11 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		if spec.IntentManifestPath != "" {
 			manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
 			digestPath := manifestPath + ".sha256"
-			digestRaw, readErr := os.ReadFile(digestPath)
-
+				digestRaw, readErr := os.ReadFile(digestPath)
 			if readErr != nil {
 				return nil, fmt.Errorf("read staged PoAD intent manifest digest: %w", readErr)
 			}
+
 			digestFields := strings.Fields(string(digestRaw))
 
 			if len(digestFields) == 0 {
@@ -222,6 +222,7 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		for node := int64(0); node < nodeNum; node++ {
 			args := append([]string(nil), nodeArgs...)
 			args = append(args, "-shard_id", strconv.FormatInt(shard, 10), "-node_id", strconv.FormatInt(node, 10))
+
 			p, err := procs.start(nodeBin, logDir, fmt.Sprintf("node_s%d_n%d", shard, node), args...)
 			if err != nil {
 				return nil, err
