@@ -46,6 +46,16 @@ var (
 		"",
 		"trusted SHA-256 digest of the exact PoAD registry file bytes",
 	)
+	poadIntentManifestPath = flag.String(
+		"poad-intent-manifest",
+		"",
+		"path to the AgentSupervisor payment-intent JSONL manifest",
+	)
+	poadIntentManifestSHA256 = flag.String(
+		"poad-intent-manifest-sha256",
+		"",
+		"trusted SHA-256 digest of the exact payment-intent manifest bytes",
+	)
 )
 
 func main() {
@@ -61,12 +71,18 @@ func main() {
 		log.Fatal(fmt.Errorf("load config: %w", err))
 	}
 
-	if *poadRequired && *poadRegistryPath == "" {
-		log.Fatal("-poad-required needs both -poad-registry and -poad-registry-sha256")
+	if *poadRequired && (*poadRegistryPath == "" || *poadIntentManifestPath == "") {
+		log.Fatal("-poad-required needs a trusted identity registry and a payment-intent manifest")
 	}
 
 	if (*poadRegistryPath == "") != (*poadRegistrySHA256 == "") {
 		log.Fatal("-poad-registry and -poad-registry-sha256 must be provided together")
+	}
+	if (*poadIntentManifestPath == "") != (*poadIntentManifestSHA256 == "") {
+		log.Fatal("-poad-intent-manifest and -poad-intent-manifest-sha256 must be provided together")
+	}
+	if *poadIntentManifestPath != "" && *poadRegistryPath == "" {
+		log.Fatal("PoAD intent manifest validation requires a trusted -poad-registry")
 	}
 
 	var poadValidator *poad.BlockMetadataValidator
@@ -82,7 +98,23 @@ func main() {
 			log.Fatal(fmt.Errorf("load trusted PoAD identity registry: %w", registryErr))
 		}
 
-		poadValidator, err = poad.NewBlockMetadataValidator(registry)
+		if *poadIntentManifestPath != "" {
+			manifest, openErr := os.Open(*poadIntentManifestPath)
+			if openErr != nil {
+				log.Fatal(fmt.Errorf("open PoAD payment-intent manifest: %w", openErr))
+			}
+			links, loadErr := poad.LoadTraceIntentLinksVerified(manifest, *poadIntentManifestSHA256)
+			closeErr := manifest.Close()
+			if loadErr != nil {
+				log.Fatal(fmt.Errorf("load trusted PoAD payment-intent manifest: %w", loadErr))
+			}
+			if closeErr != nil {
+				log.Fatal(fmt.Errorf("close PoAD payment-intent manifest: %w", closeErr))
+			}
+			poadValidator, err = poad.NewBlockMetadataValidatorWithIntentLinks(registry, links)
+		} else {
+			poadValidator, err = poad.NewBlockMetadataValidator(registry)
+		}
 		if err != nil {
 			log.Fatal(fmt.Errorf("create PoAD block validator: %w", err))
 		}
@@ -114,7 +146,7 @@ func main() {
 			log.Fatal(fmt.Errorf("configure PoAD proposal validation: %w", err))
 		}
 
-		log.Printf("PoAD proposal validation configured: required=%t registry=%s", *poadRequired, *poadRegistryPath)
+		log.Printf("PoAD proposal validation configured: required=%t registry=%s intent_manifest=%s", *poadRequired, *poadRegistryPath, *poadIntentManifestPath)
 	} else {
 		log.Printf("PoAD proposal validation is optional and no identity registry is configured; legacy blocks without PoAD remain accepted")
 	}
