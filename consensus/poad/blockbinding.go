@@ -186,6 +186,7 @@ func NewBlockMetadataValidatorWithIntentLinks(
 	if len(links) == 0 {
 		return nil, fmt.Errorf("at least one payment intent link is required")
 	}
+
 	validator.intentLinks = append([]TraceIntentLink(nil), links...)
 
 	return validator, nil
@@ -235,6 +236,7 @@ func (v *BlockMetadataValidator) ValidatePoADBlock(b *block.Block) error {
 		if status != Pass {
 			return fmt.Errorf("AgentSupervisor payment intent did not pass: %s", strings.Join(reasons, ","))
 		}
+
 		return nil
 	}
 
