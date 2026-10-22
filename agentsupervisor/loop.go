@@ -112,11 +112,11 @@ func (r *Runner) Run(ctx context.Context) ([]RoundResult, error) {
 		}
 
 		rr := RoundResult{
-			Round:       round,
-			RecordCount: len(records),
-			TxCount:     len(result.Transactions),
-			OutputDir:   outDir,
-			PlanPath:    filepath.Join(outDir, PlanFileName),
+			Round:              round,
+			RecordCount:        len(records),
+			TxCount:            len(result.Transactions),
+			OutputDir:          outDir,
+			PlanPath:           filepath.Join(outDir, PlanFileName),
 			IntentManifestPath: filepath.Join(outDir, PoADPaymentManifestFileName),
 		}
 
