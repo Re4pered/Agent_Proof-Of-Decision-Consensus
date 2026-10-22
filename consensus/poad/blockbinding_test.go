@@ -127,28 +127,30 @@ func TestAttachBlockPoADMetadataRejectsTransactionNotInBlock(t *testing.T) {
 	}
 }
 
-
 func TestBlockMetadataValidatorBindsIntentManifest(t *testing.T) {
 	registry := NewIdentityRegistry()
 	b, decisions, record := buildPoADTestBlock(t, registry)
 	if err := AttachBlockPoADMetadata(b, registry, decisions, record); err != nil {
 		t.Fatal(err)
 	}
+
 	tx := b.TxList[0]
 	hash, err := tx.Hash()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	links := []TraceIntentLink{{
 		Action: "pay", AgentID: "agent-1", Target: "agent-2", Amount: 1,
 		RequestID: "request-1", TxHashes: []string{hex.EncodeToString(hash)},
-		ExpectedSender: "0x" + fmt.Sprintf("%x", tx.Sender),
+		ExpectedSender:    "0x" + fmt.Sprintf("%x", tx.Sender),
 		ExpectedRecipient: "0x" + fmt.Sprintf("%x", tx.Recipient),
 	}}
 	validator, err := NewBlockMetadataValidatorWithIntentLinks(registry, links)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if err := validator.ValidatePoADBlock(b); err != nil {
 		t.Fatalf("expected linked payment intent to pass: %v", err)
 	}
@@ -158,6 +160,7 @@ func TestBlockMetadataValidatorBindsIntentManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if err := validator.ValidatePoADBlock(b); err == nil {
 		t.Fatal("expected intent amount mismatch to reject the PoAD block")
 	}
