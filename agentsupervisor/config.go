@@ -30,6 +30,13 @@ type Config struct {
 		// NodeExitGraceSeconds is how long consensus nodes may take to exit after
 		// the supervisor finished (default 15).
 		NodeExitGraceSeconds int `yaml:"node_exit_grace_seconds"`
+		// PoADRegistryPath points to the trusted Agent public-identity snapshot.
+		PoADRegistryPath string `yaml:"poad_registry_path"`
+		// PoADRegistrySHA256 is provisioned independently as the trusted registry digest.
+		PoADRegistrySHA256 string `yaml:"poad_registry_sha256"`
+		// PoADRequired enables fail-closed PoAD proposal validation. The block builder
+		// must already attach valid decision evidence before this can be enabled.
+		PoADRequired bool `yaml:"poad_required"`
 	} `yaml:"chain"`
 	Loop struct {
 		// MaxRounds caps the simulation loop even if an AgentAPI keeps producing
@@ -69,6 +76,14 @@ func LoadConfig(path string) (Config, error) {
 
 	if cfg.Chain.Enabled && cfg.Base.BlockEmulatorConfig == "" {
 		return Config{}, fmt.Errorf("base.blockemulator_config is required when chain.enabled is true")
+	}
+
+	if (cfg.Chain.PoADRegistryPath == "") != (cfg.Chain.PoADRegistrySHA256 == "") {
+		return Config{}, fmt.Errorf("chain.poad_registry_path and chain.poad_registry_sha256 must be configured together")
+	}
+
+	if cfg.Chain.PoADRequired && (!cfg.Chain.Enabled || cfg.Chain.PoADRegistryPath == "") {
+		return Config{}, fmt.Errorf("chain.poad_required needs chain.enabled=true and both PoAD registry settings")
 	}
 
 	if cfg.Chain.RunTimeoutSeconds <= 0 {
