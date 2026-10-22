@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/HuangLab-SYSU/block-emulator-x/supervisor/txsource/tracesource"
+
+	"gopkg.in/yaml.v3"
 )
 
 // defaultChainRunTimeout bounds one whole chain run; the supervisor normally
@@ -300,20 +300,22 @@ func (c *ChainRunner) prepare(chainDir string, spec RoundSpec) (string, string, 
 	return cfgPath, tablePath, resultDir, nil
 }
 
-
 func copyPoADPaymentManifest(sourcePath, chainDir string) error {
 	raw, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return fmt.Errorf("read AgentSupervisor PoAD payment manifest: %w", err)
 	}
+
 	actual := sha256.Sum256(raw)
 	actualHex := hex.EncodeToString(actual[:])
 
 	sourceDigestPath := sourcePath + ".sha256"
+
 	digestRaw, err := os.ReadFile(sourceDigestPath)
 	if err != nil {
 		return fmt.Errorf("read AgentSupervisor PoAD manifest digest: %w", err)
 	}
+
 	fields := strings.Fields(string(digestRaw))
 	if len(fields) == 0 || !strings.EqualFold(fields[0], actualHex) {
 		return fmt.Errorf("AgentSupervisor PoAD payment manifest digest mismatch")
@@ -323,10 +325,12 @@ func copyPoADPaymentManifest(sourcePath, chainDir string) error {
 	if err := os.WriteFile(targetPath, raw, 0o644); err != nil {
 		return fmt.Errorf("stage PoAD payment manifest for chain run: %w", err)
 	}
+
 	targetDigest := actualHex + "  " + PoADPaymentManifestFileName + "\n"
 	if err := os.WriteFile(filepath.Join(chainDir, PoADPaymentManifestDigestFileName), []byte(targetDigest), 0o644); err != nil {
 		return fmt.Errorf("write staged PoAD payment manifest digest: %w", err)
 	}
+
 	return nil
 }
 
