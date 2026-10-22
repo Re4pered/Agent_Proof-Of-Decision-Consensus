@@ -4,11 +4,13 @@
 
 The consensus node supports an opt-in, fail-closed PoAD policy:
 
-- `-poad-required`: reject transaction proposals unless they contain valid PoAD metadata. The current strict policy supports exactly one transaction per non-migration block.
+- `-poad-required`: reject transaction proposals unless they contain valid PoAD metadata and the finalized transaction matches the payment-intent manifest. The current strict policy supports exactly one transaction per non-migration block.
 - `-poad-registry`: path to a trusted JSON snapshot of Agent public identities.
 - `-poad-registry-sha256`: SHA-256 digest of the exact registry file bytes, provisioned independently of that file.
+- `-poad-intent-manifest`: path to the AgentSupervisor payment-intent JSONL manifest.
+- `-poad-intent-manifest-sha256`: SHA-256 digest of the exact manifest bytes. In production, provision this digest through a trusted channel; a sidecar generated next to the manifest only detects accidental corruption.
 
-When `-poad-required` is set without both registry flags, startup fails. If a registry is supplied without strict mode, PoAD metadata is still verified when present, but legacy transaction blocks without PoAD metadata remain permitted. With no registry and no strict mode, the node logs that it is running in legacy/optional mode.
+When `-poad-required` is set without the registry pair and intent-manifest pair, startup fails. Supplying an intent manifest without a registry also fails. If a registry is supplied without strict mode, PoAD metadata is still verified when present, but legacy transaction blocks without PoAD metadata remain permitted. With no registry and no strict mode, the node logs that it is running in legacy/optional mode.
 
 Example:
 
