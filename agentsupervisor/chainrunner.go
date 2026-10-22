@@ -181,6 +181,7 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 	if c.PoADRequired && (c.PoADRegistryPath == "" || c.PoADRegistrySHA256 == "" || spec.IntentManifestPath == "") {
 		return nil, fmt.Errorf("required PoAD needs registry path/digest and an AgentSupervisor intent manifest")
 	}
+
 	if (c.PoADRegistryPath == "") != (c.PoADRegistrySHA256 == "") {
 		return nil, fmt.Errorf("PoAD registry path and SHA-256 digest must be configured together")
 	}
@@ -191,22 +192,27 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 			"-poad-registry", c.PoADRegistryPath,
 			"-poad-registry-sha256", c.PoADRegistrySHA256,
 		)
+
 		if spec.IntentManifestPath != "" {
 			manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
 			digestPath := manifestPath + ".sha256"
 			digestRaw, readErr := os.ReadFile(digestPath)
+
 			if readErr != nil {
 				return nil, fmt.Errorf("read staged PoAD intent manifest digest: %w", readErr)
 			}
 			digestFields := strings.Fields(string(digestRaw))
+
 			if len(digestFields) == 0 {
 				return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
 			}
+
 			nodeArgs = append(nodeArgs,
 				"-poad-intent-manifest", manifestPath,
 				"-poad-intent-manifest-sha256", digestFields[0],
 			)
 		}
+
 		if c.PoADRequired {
 			nodeArgs = append(nodeArgs, "-poad-required")
 		}
