@@ -21,7 +21,7 @@ func senderValidationNode() *Node {
 	)
 	return &Node{
 		resolver: resolver,
-		pbftMeta: newConsensusMeta(config.ConsensusNodeCfg{NodeNum: 3, ShardNum: 3}, config.LocalParams{ShardID: 1, NodeID: 1}),
+		pbftMeta: newConsensusMeta(config.ConsensusNodeCfg{BlockchainCfg: config.BlockchainCfg{SystemCfg: config.SystemCfg{NodeNum: 3, ShardNum: 3}}}, config.LocalParams{ShardID: 1, NodeID: 1}),
 	}
 }
 
