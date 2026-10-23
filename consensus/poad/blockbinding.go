@@ -203,8 +203,16 @@ func (v *BlockMetadataValidator) ValidatePoADBlock(b *block.Block) error {
 		return err
 	}
 
-	if len(v.intentLinks) == 0 || b == nil || len(b.PoADData) == 0 {
+	if len(v.intentLinks) == 0 {
 		return nil
+	}
+
+	if b == nil {
+		return fmt.Errorf("block is required for AgentSupervisor intent binding")
+	}
+
+	if len(b.PoADData) == 0 || len(b.PoADRoot) == 0 {
+		return fmt.Errorf("PoAD metadata is required when AgentSupervisor intent binding is configured")
 	}
 
 	var envelope BlockPoADEnvelope
