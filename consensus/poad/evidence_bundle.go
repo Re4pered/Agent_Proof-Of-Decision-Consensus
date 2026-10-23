@@ -26,9 +26,13 @@ type BlockEvidenceBundle struct {
 // untrusted bundle; provision the expected digest through a trusted channel.
 func LoadBlockEvidenceBundleVerified(reader io.Reader, expectedSHA256 string) (BlockEvidenceBundle, error) {
 	expected := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(expectedSHA256)), "0x")
+
 	if len(expected) != sha256.Size*2 {
-		return BlockEvidenceBundle{}, fmt.Errorf("expected evidence bundle SHA-256 must contain 64 hexadecimal characters")
+		return BlockEvidenceBundle{}, fmt.Errorf(
+			"expected evidence bundle SHA-256 must contain 64 hexadecimal characters",
+		)
 	}
+
 	if _, err := hex.DecodeString(expected); err != nil {
 		return BlockEvidenceBundle{}, fmt.Errorf("decode expected evidence bundle SHA-256: %w", err)
 	}
@@ -37,6 +41,7 @@ func LoadBlockEvidenceBundleVerified(reader io.Reader, expectedSHA256 string) (B
 	if err != nil {
 		return BlockEvidenceBundle{}, fmt.Errorf("read PoAD evidence bundle: %w", err)
 	}
+
 	actual := sha256.Sum256(data)
 	if hex.EncodeToString(actual[:]) != expected {
 		return BlockEvidenceBundle{}, fmt.Errorf("PoAD evidence bundle SHA-256 mismatch")
@@ -46,20 +51,31 @@ func LoadBlockEvidenceBundleVerified(reader io.Reader, expectedSHA256 string) (B
 	if err := json.Unmarshal(data, &bundle); err != nil {
 		return BlockEvidenceBundle{}, fmt.Errorf("decode PoAD evidence bundle: %w", err)
 	}
+
 	if strings.TrimSpace(bundle.TransactionHash) == "" {
 		return BlockEvidenceBundle{}, fmt.Errorf("evidence bundle transaction hash is required")
 	}
+
 	if len(bundle.Decisions) == 0 {
 		return BlockEvidenceBundle{}, fmt.Errorf("evidence bundle must contain signed Agent decisions")
 	}
-	if !strings.EqualFold(normalizeHash(bundle.TransactionHash), normalizeHash(bundle.Finalization.TransactionHash)) {
+
+	if !strings.EqualFold(
+		normalizeHash(bundle.TransactionHash),
+		normalizeHash(bundle.Finalization.TransactionHash),
+	) {
 		return BlockEvidenceBundle{}, fmt.Errorf("evidence bundle transaction hash does not match finalization")
 	}
+
 	for i, signed := range bundle.Decisions {
-		if !strings.EqualFold(normalizeHash(signed.Decision.TransactionHash), normalizeHash(bundle.TransactionHash)) {
+		if !strings.EqualFold(
+			normalizeHash(signed.Decision.TransactionHash),
+			normalizeHash(bundle.TransactionHash),
+		) {
 			return BlockEvidenceBundle{}, fmt.Errorf("decision %d references a different transaction", i)
 		}
 	}
+
 	return bundle, nil
 }
 
@@ -71,15 +87,22 @@ func AttachVerifiedBlockEvidence(b *block.Block, registry *IdentityRegistry, bun
 	if b == nil {
 		return fmt.Errorf("block is required")
 	}
-	if !strings.EqualFold(normalizeHash(bundle.TransactionHash), normalizeHash(bundle.Finalization.TransactionHash)) {
+
+	if !strings.EqualFold(
+		normalizeHash(bundle.TransactionHash),
+		normalizeHash(bundle.Finalization.TransactionHash),
+	) {
 		return fmt.Errorf("evidence bundle transaction hash does not match finalization")
 	}
+
 	if err := requireTransactionInBlock(b, bundle.TransactionHash); err != nil {
 		return fmt.Errorf("bind evidence bundle to proposed block: %w", err)
 	}
+
 	if err := AttachBlockPoADMetadata(b, registry, bundle.Decisions, bundle.Finalization); err != nil {
 		return fmt.Errorf("attach verified PoAD evidence: %w", err)
 	}
+
 	return nil
 }
 
@@ -92,6 +115,7 @@ func normalizeHash(value string) string {
 // when the bundle and digest are both received from the same untrusted source.
 func EvidenceBundleDigest(data []byte) string {
 	digest := sha256.Sum256(data)
+
 	return hex.EncodeToString(digest[:])
 }
 
@@ -102,9 +126,11 @@ func MarshalBlockEvidenceBundle(bundle BlockEvidenceBundle) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal PoAD evidence bundle: %w", err)
 	}
+
 	var compact bytes.Buffer
 	if err := json.Compact(&compact, data); err != nil {
 		return nil, fmt.Errorf("canonicalize PoAD evidence bundle: %w", err)
 	}
+
 	return compact.Bytes(), nil
 }
