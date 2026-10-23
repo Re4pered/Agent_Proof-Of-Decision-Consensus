@@ -58,6 +58,30 @@ var (
 	)
 )
 
+func validatePoADStartupConfig(required bool, registryPath, registrySHA256, manifestPath, manifestSHA256 string) error {
+	if required && (registryPath == "" || manifestPath == "") {
+		return fmt.Errorf("-poad-required needs a trusted identity registry and a payment-intent manifest")
+	}
+
+	if manifestPath != "" && !required {
+		return fmt.Errorf("-poad-intent-manifest requires -poad-required so transaction blocks cannot bypass intent verification by omitting PoAD metadata")
+	}
+
+	if (registryPath == "") != (registrySHA256 == "") {
+		return fmt.Errorf("-poad-registry and -poad-registry-sha256 must be provided together")
+	}
+
+	if (manifestPath == "") != (manifestSHA256 == "") {
+		return fmt.Errorf("-poad-intent-manifest and -poad-intent-manifest-sha256 must be provided together")
+	}
+
+	if manifestPath != "" && registryPath == "" {
+		return fmt.Errorf("PoAD intent manifest validation requires a trusted -poad-registry")
+	}
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
 
@@ -71,27 +95,14 @@ func main() {
 		log.Fatal(fmt.Errorf("load config: %w", err))
 	}
 
-	if *poadRequired && (*poadRegistryPath == "" || *poadIntentManifestPath == "") {
-		log.Fatal("-poad-required needs a trusted identity registry and a payment-intent manifest")
-	}
-
-	if *poadIntentManifestPath != "" && !*poadRequired {
-		log.Fatal(
-			"-poad-intent-manifest requires -poad-required so transaction blocks cannot bypass " +
-				"intent verification by omitting PoAD metadata",
-		)
-	}
-
-	if (*poadRegistryPath == "") != (*poadRegistrySHA256 == "") {
-		log.Fatal("-poad-registry and -poad-registry-sha256 must be provided together")
-	}
-
-	if (*poadIntentManifestPath == "") != (*poadIntentManifestSHA256 == "") {
-		log.Fatal("-poad-intent-manifest and -poad-intent-manifest-sha256 must be provided together")
-	}
-
-	if *poadIntentManifestPath != "" && *poadRegistryPath == "" {
-		log.Fatal("PoAD intent manifest validation requires a trusted -poad-registry")
+	if err := validatePoADStartupConfig(
+		*poadRequired,
+		*poadRegistryPath,
+		*poadRegistrySHA256,
+		*poadIntentManifestPath,
+		*poadIntentManifestSHA256,
+	); err != nil {
+		log.Fatal(err)
 	}
 
 	var poadValidator *poad.BlockMetadataValidator
