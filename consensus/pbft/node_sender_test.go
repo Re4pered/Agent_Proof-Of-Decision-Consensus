@@ -45,3 +45,24 @@ func TestValidateConsensusSenderRejectsCrossShardMessage(t *testing.T) {
 		t.Fatal("expected cross-shard consensus message to be rejected")
 	}
 }
+
+func TestValidateCatchupRequestAcceptsConfiguredShardMember(t *testing.T) {
+	node := senderValidationNode()
+	if err := node.validateCatchupRequest(1, 2, 1); err != nil {
+		t.Fatalf("expected valid catch-up request to pass: %v", err)
+	}
+}
+
+func TestValidateCatchupRequestRejectsCrossShardRequester(t *testing.T) {
+	node := senderValidationNode()
+	if err := node.validateCatchupRequest(2, 0, 1); err == nil {
+		t.Fatal("expected cross-shard catch-up request to be rejected")
+	}
+}
+
+func TestValidateCatchupRequestRejectsNegativeStartHeight(t *testing.T) {
+	node := senderValidationNode()
+	if err := node.validateCatchupRequest(1, 1, -1); err == nil {
+		t.Fatal("expected negative catch-up start height to be rejected")
+	}
+}
