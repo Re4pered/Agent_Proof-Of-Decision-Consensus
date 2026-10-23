@@ -393,10 +393,26 @@ func (n *Node) handleCommit(ctx context.Context, payload []byte) error {
 	return nil
 }
 
+// validateCatchupRequest rejects requests from unknown or cross-shard nodes and
+// invalid heights before the request can trigger block reads and network responses.
+func (n *Node) validateCatchupRequest(shardID, nodeID, startBlockHeight int64) error {
+	if err := n.validateConsensusSender(shardID, nodeID); err != nil {
+		return fmt.Errorf("validate requester identity: %w", err)
+	}
+	if startBlockHeight < 0 {
+		return fmt.Errorf("catch-up start height must be non-negative: %d", startBlockHeight)
+	}
+	return nil
+}
+
 func (n *Node) handleCatchupReq(ctx context.Context, payload []byte) error {
 	var crMsg message.CatchupReqMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&crMsg); err != nil {
 		return fmt.Errorf("decode catchup req msg: %w", err)
+	}
+
+	if err := n.validateCatchupRequest(crMsg.ShardID, crMsg.NodeID, crMsg.StartBlockHeight); err != nil {
+		return fmt.Errorf("validate catch-up request: %w", err)
 	}
 
 	slog.InfoContext(ctx, "handle catch up req message", "from shardID", crMsg.ShardID, "from nodeID", crMsg.NodeID)
