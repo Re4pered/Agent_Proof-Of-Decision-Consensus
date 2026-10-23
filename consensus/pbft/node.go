@@ -361,6 +361,7 @@ func (n *Node) handlePrepare(ctx context.Context, payload []byte) error {
 	return nil
 }
 
+//nolint:dupl // Prepare and Commit have intentionally parallel decoding and validation paths.
 func (n *Node) handleCommit(ctx context.Context, payload []byte) error {
 	var cMsg message.CommitMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&cMsg); err != nil {
