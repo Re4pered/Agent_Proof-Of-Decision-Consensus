@@ -64,7 +64,10 @@ func validatePoADStartupConfig(required bool, registryPath, registrySHA256, mani
 	}
 
 	if manifestPath != "" && !required {
-		return fmt.Errorf("-poad-intent-manifest requires -poad-required so transaction blocks cannot bypass intent verification by omitting PoAD metadata")
+		return fmt.Errorf(
+			"-poad-intent-manifest requires -poad-required so transaction blocks cannot bypass " +
+				"intent verification by omitting PoAD metadata",
+		)
 	}
 
 	if (registryPath == "") != (registrySHA256 == "") {
