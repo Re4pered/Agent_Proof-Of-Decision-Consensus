@@ -399,9 +399,11 @@ func (n *Node) validateCatchupRequest(shardID, nodeID, startBlockHeight int64) e
 	if err := n.validateConsensusSender(shardID, nodeID); err != nil {
 		return fmt.Errorf("validate requester identity: %w", err)
 	}
+
 	if startBlockHeight < 0 {
 		return fmt.Errorf("catch-up start height must be non-negative: %d", startBlockHeight)
 	}
+
 	return nil
 }
 
