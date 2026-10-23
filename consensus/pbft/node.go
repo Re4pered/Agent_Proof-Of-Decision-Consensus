@@ -331,6 +331,7 @@ func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 	return nil
 }
 
+//nolint:dupl // Prepare and Commit intentionally share the same validation sequence.
 func (n *Node) handlePrepare(ctx context.Context, payload []byte) error {
 	var pMsg message.PrepareMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&pMsg); err != nil {
