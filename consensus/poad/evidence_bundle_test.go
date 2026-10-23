@@ -2,7 +2,6 @@ package poad
 
 import (
 	"bytes"
-	"crypto/ed25519"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -123,5 +122,4 @@ func TestAttachVerifiedBlockEvidenceBindsBlockAndStateRoot(t *testing.T) {
 		t.Fatal("expected evidence for another transaction to be rejected")
 	}
 
-	_ = ed25519.PublicKeySize
 }
