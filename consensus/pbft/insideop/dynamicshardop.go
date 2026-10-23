@@ -40,6 +40,7 @@ type DynamicShardOp struct {
 	cfg           config.ConsensusNodeCfg
 	lp            config.LocalParams
 	poadValidator PoADBlockValidator
+	poadBuilder   PoADProposalBuilder
 	requirePoAD   bool
 }
 
@@ -74,6 +75,11 @@ func (c *DynamicShardOp) BuildProposal(ctx context.Context) (*message.Proposal, 
 
 	// MigrationReady is true, thus this node is ready to propose a partition block.
 	return c.buildPartitionProposal(ctx)
+}
+
+// SetPoADProposalBuilder configures leader-side PoAD metadata generation.
+func (c *DynamicShardOp) SetPoADProposalBuilder(builder PoADProposalBuilder) {
+	c.poadBuilder = builder
 }
 
 // SetPoADValidation configures optional PoAD verification. Call before starting PBFT.
@@ -124,6 +130,10 @@ func (c *DynamicShardOp) buildBlockProposal(ctx context.Context) (*message.Propo
 	p, err := c.tbo.BuildTxBlockProposal(ctx, txs)
 	if err != nil {
 		return nil, fmt.Errorf("build block proposal in relay mode failed: %w", err)
+	}
+
+	if err := buildPoADProposalMetadata(ctx, p.Block, c.poadBuilder, c.requirePoAD); err != nil {
+		return nil, err
 	}
 
 	return p, nil

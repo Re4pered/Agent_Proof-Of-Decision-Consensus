@@ -19,6 +19,7 @@ type StaticShardOp struct {
 	tbo           txblockop.TxBlockOp
 	cfg           config.ConsensusNodeCfg
 	poadValidator PoADBlockValidator
+	poadBuilder   PoADProposalBuilder
 	requirePoAD   bool
 }
 
@@ -47,7 +48,16 @@ func (s *StaticShardOp) BuildProposal(ctx context.Context) (*message.Proposal, e
 		return nil, fmt.Errorf("build block proposal in relay mode failed: %w", err)
 	}
 
+	if err := buildPoADProposalMetadata(ctx, p.Block, s.poadBuilder, s.requirePoAD); err != nil {
+		return nil, err
+	}
+
 	return p, nil
+}
+
+// SetPoADProposalBuilder configures leader-side PoAD metadata generation.
+func (s *StaticShardOp) SetPoADProposalBuilder(builder PoADProposalBuilder) {
+	s.poadBuilder = builder
 }
 
 // SetPoADValidation configures optional PoAD verification. Call before starting PBFT.

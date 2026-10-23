@@ -18,6 +18,47 @@ type PoADConfigurable interface {
 	SetPoADValidation(PoADBlockValidator, bool)
 }
 
+// PoADProposalBuilder attaches authenticated Agent decisions before a leader starts PBFT.
+// Implementations must use actual transaction, state, and evidence validation results.
+type PoADProposalBuilder interface {
+	BuildPoADMetadata(context.Context, *block.Block) error
+}
+
+// PoADProposalBuildConfigurable exposes proposal-time PoAD metadata generation.
+type PoADProposalBuildConfigurable interface {
+	SetPoADProposalBuilder(PoADProposalBuilder)
+}
+
+// buildPoADProposalMetadata enriches a transaction proposal before PBFT validation.
+func buildPoADProposalMetadata(
+	ctx context.Context,
+	b *block.Block,
+	builder PoADProposalBuilder,
+	required bool,
+) error {
+	if b == nil {
+		return fmt.Errorf("proposal block is required")
+	}
+
+	if b.Type == block.MigrationBlockType {
+		return nil
+	}
+
+	if builder == nil {
+		if required {
+			return fmt.Errorf("PoAD proposal builder is required to build transaction proposals")
+		}
+
+		return nil
+	}
+
+	if err := builder.BuildPoADMetadata(ctx, b); err != nil {
+		return fmt.Errorf("build PoAD proposal metadata: %w", err)
+	}
+
+	return nil
+}
+
 // validatePoADProposal checks metadata presence and invokes the configured validator.
 // requirePoAD applies to transaction blocks; migration blocks remain exempt unless they
 // explicitly carry PoAD metadata, in which case that metadata must still be verified.
