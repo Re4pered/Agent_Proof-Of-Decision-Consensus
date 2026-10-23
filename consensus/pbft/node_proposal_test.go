@@ -52,3 +52,39 @@ func TestProposeRejectsInvalidLocalProposalBeforeBroadcast(t *testing.T) {
 		t.Fatalf("ValidateProposal calls = %d, want 1", op.validateCalls)
 	}
 }
+
+
+func TestValidatePreprepareDigestAcceptsMatchingProposalHash(t *testing.T) {
+	proposal := &message.Proposal{
+		Block: block.NewBlock(block.Header{Number: 1}, block.Body{}, block.MigrationOpt{}),
+	}
+	digest, err := proposal.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ppMsg := &message.PreprepareMsg{P: *proposal, Digest: digest}
+	if err := validatePreprepareDigest(ppMsg); err != nil {
+		t.Fatalf("expected matching proposal digest to pass: %v", err)
+	}
+}
+
+func TestValidatePreprepareDigestRejectsMismatch(t *testing.T) {
+	proposal := &message.Proposal{
+		Block: block.NewBlock(block.Header{Number: 1}, block.Body{}, block.MigrationOpt{}),
+	}
+	ppMsg := &message.PreprepareMsg{
+		P:      *proposal,
+		Digest: []byte("digest-for-another-proposal"),
+	}
+
+	if err := validatePreprepareDigest(ppMsg); err == nil {
+		t.Fatal("expected preprepare with a mismatched proposal digest to be rejected")
+	}
+}
+
+func TestValidatePreprepareDigestRejectsNilMessage(t *testing.T) {
+	if err := validatePreprepareDigest(nil); err == nil {
+		t.Fatal("expected nil preprepare message to be rejected")
+	}
+}
