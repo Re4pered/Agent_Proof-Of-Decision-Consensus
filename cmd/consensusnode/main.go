@@ -75,6 +75,10 @@ func main() {
 		log.Fatal("-poad-required needs a trusted identity registry and a payment-intent manifest")
 	}
 
+	if *poadIntentManifestPath != "" && !*poadRequired {
+		log.Fatal("-poad-intent-manifest requires -poad-required so transaction blocks cannot bypass intent verification by omitting PoAD metadata")
+	}
+
 	if (*poadRegistryPath == "") != (*poadRegistrySHA256 == "") {
 		log.Fatal("-poad-registry and -poad-registry-sha256 must be provided together")
 	}
