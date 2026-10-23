@@ -165,3 +165,21 @@ func TestBlockMetadataValidatorBindsIntentManifest(t *testing.T) {
 		t.Fatal("expected intent amount mismatch to reject the PoAD block")
 	}
 }
+
+
+func TestBlockMetadataValidatorWithIntentLinksRejectsMissingPoADMetadata(t *testing.T) {
+	registry := NewIdentityRegistry()
+	validator, err := NewBlockMetadataValidatorWithIntentLinks(registry, []TraceIntentLink{{
+		Action: "pay", AgentID: "agent-1", Target: "agent-2", Amount: 1,
+		RequestID: "request-1", TxHashes: []string{"deadbeef"},
+		ExpectedSender: "0x01", ExpectedRecipient: "0x02",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b := block.NewBlock(block.Header{}, block.Body{}, block.MigrationOpt{})
+	if err := validator.ValidatePoADBlock(b); err == nil {
+		t.Fatal("expected a block without PoAD metadata to be rejected when intent binding is configured")
+	}
+}
