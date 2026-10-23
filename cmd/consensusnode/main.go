@@ -76,7 +76,10 @@ func main() {
 	}
 
 	if *poadIntentManifestPath != "" && !*poadRequired {
-		log.Fatal("-poad-intent-manifest requires -poad-required so transaction blocks cannot bypass intent verification by omitting PoAD metadata")
+		log.Fatal(
+			"-poad-intent-manifest requires -poad-required so transaction blocks cannot bypass " +
+				"intent verification by omitting PoAD metadata",
+		)
 	}
 
 	if (*poadRegistryPath == "") != (*poadRegistrySHA256 == "") {
