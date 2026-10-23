@@ -38,15 +38,14 @@ func BuildAndAttachPaymentPoADMetadata(
 	if len(b.StateRoot) == 0 {
 		return fmt.Errorf("validated block state root is required")
 	}
-	if err := requireTransactionInBlock(b, transactionHash(tx)); err != nil {
-		return fmt.Errorf("bind payment transaction to block: %w", err)
-	}
-
 	hashBytes, err := tx.Hash()
 	if err != nil {
 		return fmt.Errorf("hash payment transaction: %w", err)
 	}
 	hash := hex.EncodeToString(hashBytes)
+	if err := requireTransactionInBlock(b, hash); err != nil {
+		return fmt.Errorf("bind payment transaction to block: %w", err)
+	}
 
 	decisions := make([]SignedDecision, 0, len(validators))
 	for _, validator := range validators {
@@ -79,10 +78,3 @@ func BuildAndAttachPaymentPoADMetadata(
 	return nil
 }
 
-func transactionHash(tx transaction.Transaction) string {
-	hash, err := tx.Hash()
-	if err != nil {
-		return ""
-	}
-	return hex.EncodeToString(hash)
-}
