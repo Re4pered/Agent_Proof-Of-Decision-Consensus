@@ -251,6 +251,25 @@ func (n *Node) handleStopConsensus(ctx context.Context, _ []byte) error {
 	return nil
 }
 
+// validatePreprepareDigest ensures the PBFT vote digest commits to the exact proposal
+// carried by the Pre-Prepare message.
+func validatePreprepareDigest(ppMsg *message.PreprepareMsg) error {
+	if ppMsg == nil {
+		return fmt.Errorf("preprepare message is required")
+	}
+
+	expectedDigest, err := ppMsg.P.Hash()
+	if err != nil {
+		return fmt.Errorf("hash preprepare proposal: %w", err)
+	}
+
+	if !bytes.Equal(ppMsg.Digest, expectedDigest) {
+		return fmt.Errorf("preprepare digest does not match proposal hash")
+	}
+
+	return nil
+}
+
 func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 	var ppMsg message.PreprepareMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&ppMsg); err != nil {
@@ -270,6 +289,10 @@ func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 	if n.pbftMeta.curViewSeq.Compare(basicstructs.ViewSeq{View: ppMsg.View, Seq: ppMsg.Seq}) > 0 {
 		slog.InfoContext(ctx, "handle out-of-date Preprepare, ignore it", "view", ppMsg.View, "seq", ppMsg.Seq)
 		return nil
+	}
+
+	if err := validatePreprepareDigest(&ppMsg); err != nil {
+		return fmt.Errorf("validate preprepare digest: %w", err)
 	}
 
 	if err := n.iop.ValidateProposal(ctx, &ppMsg.P); err != nil {
