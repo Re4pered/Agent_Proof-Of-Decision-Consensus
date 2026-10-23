@@ -78,8 +78,5 @@ func BuildAndAttachPaymentPoADMetadata(
 		return fmt.Errorf("prepare PoAD block finalization: %w", err)
 	}
 
-	if err := AttachBlockPoADMetadata(b, registry, decisions, finalization); err != nil {
-		return fmt.Errorf("attach PoAD payment metadata: %w", err)
-	}
-	return nil
+	return AttachBlockPoADMetadata(b, registry, decisions, finalization)
 }
