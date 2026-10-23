@@ -270,6 +270,28 @@ func validatePreprepareDigest(ppMsg *message.PreprepareMsg) error {
 	return nil
 }
 
+// validateConsensusSender checks that a PBFT message claims a node ID in this
+// node's configured shard. This rejects unknown IDs and cross-shard vote injection;
+// transport-level peer authentication must still bind the payload identity to sender.
+func (n *Node) validateConsensusSender(shardID, nodeID int64) error {
+	if shardID != n.pbftMeta.lp.ShardID {
+		return fmt.Errorf("consensus message shard mismatch: got %d, want %d", shardID, n.pbftMeta.lp.ShardID)
+	}
+
+	members, err := n.resolver.GetNodesInShard(n.pbftMeta.lp.ShardID)
+	if err != nil {
+		return fmt.Errorf("get consensus shard members: %w", err)
+	}
+
+	for _, member := range members {
+		if member.ShardID == shardID && member.NodeID == nodeID {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("node %d is not a member of shard %d", nodeID, shardID)
+}
+
 func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 	var ppMsg message.PreprepareMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&ppMsg); err != nil {
@@ -284,6 +306,10 @@ func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 		"nodeID",
 		ppMsg.NodeID,
 	)
+
+	if err := n.validateConsensusSender(ppMsg.ShardID, ppMsg.NodeID); err != nil {
+		return fmt.Errorf("validate ppMsg sender: %w", err)
+	}
 
 	// ignore the out-of-date message
 	if n.pbftMeta.curViewSeq.Compare(basicstructs.ViewSeq{View: ppMsg.View, Seq: ppMsg.Seq}) > 0 {
@@ -320,6 +346,10 @@ func (n *Node) handlePrepare(ctx context.Context, payload []byte) error {
 		pMsg.NodeID,
 	)
 
+	if err := n.validateConsensusSender(pMsg.ShardID, pMsg.NodeID); err != nil {
+		return fmt.Errorf("validate pMsg sender: %w", err)
+	}
+
 	// ignore the out-of-date message
 	if n.pbftMeta.curViewSeq.Compare(basicstructs.ViewSeq{View: pMsg.View, Seq: pMsg.Seq}) > 0 {
 		slog.InfoContext(ctx, "handle out-of-date Prepare, ignore it", "view", pMsg.View, "seq", pMsg.Seq)
@@ -345,6 +375,10 @@ func (n *Node) handleCommit(ctx context.Context, payload []byte) error {
 		"nodeID",
 		cMsg.NodeID,
 	)
+
+	if err := n.validateConsensusSender(cMsg.ShardID, cMsg.NodeID); err != nil {
+		return fmt.Errorf("validate cMsg sender: %w", err)
+	}
 
 	// ignore the out-of-date message
 	if n.pbftMeta.curViewSeq.Compare(basicstructs.ViewSeq{View: cMsg.View, Seq: cMsg.Seq}) > 0 {
@@ -398,6 +432,10 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 	}
 
 	slog.InfoContext(ctx, "handle catch up resp message")
+
+	if err := n.validateConsensusSender(crMsg.ShardID, crMsg.NodeID); err != nil {
+		return fmt.Errorf("validate catch-up response sender: %w", err)
+	}
 
 	if n.pbftMeta.leader != crMsg.NodeID {
 		return fmt.Errorf("the catchup response message is not from the leader, from nodeID=%d", crMsg.NodeID)
