@@ -32,16 +32,20 @@ func BuildAndAttachPaymentPoADMetadata(
 	if b == nil {
 		return fmt.Errorf("block is required")
 	}
+
 	if registry == nil {
 		return fmt.Errorf("trusted Agent identity registry is required")
 	}
+
 	if len(b.StateRoot) == 0 {
 		return fmt.Errorf("validated block state root is required")
 	}
+
 	hashBytes, err := tx.Hash()
 	if err != nil {
 		return fmt.Errorf("hash payment transaction: %w", err)
 	}
+
 	hash := hex.EncodeToString(hashBytes)
 	if err := requireTransactionInBlock(b, hash); err != nil {
 		return fmt.Errorf("bind payment transaction to block: %w", err)
@@ -53,10 +57,12 @@ func BuildAndAttachPaymentPoADMetadata(
 		if input.TransactionHash != hash {
 			return fmt.Errorf("validator %q transaction hash does not match payment transaction", input.AgentID)
 		}
+
 		signed, err := EvaluateAndSignPaymentDecision(input, tx, links, validator.PrivateKey)
 		if err != nil {
 			return fmt.Errorf("evaluate payment decision for %q: %w", input.AgentID, err)
 		}
+
 		decisions = append(decisions, signed)
 	}
 
@@ -77,4 +83,3 @@ func BuildAndAttachPaymentPoADMetadata(
 	}
 	return nil
 }
-
