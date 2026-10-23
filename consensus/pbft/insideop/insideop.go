@@ -29,7 +29,7 @@ type PoADProposalBuildConfigurable interface {
 	SetPoADProposalBuilder(PoADProposalBuilder)
 }
 
-// buildPoADProposalMetadata enriches a transaction proposal before PBFT validation.
+// buildPoADProposalMetadata enriches a transaction proposal before PBFT validation begins.
 func buildPoADProposalMetadata(
 	ctx context.Context,
 	b *block.Block,
