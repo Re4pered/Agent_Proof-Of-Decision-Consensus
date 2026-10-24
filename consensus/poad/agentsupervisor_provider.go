@@ -85,7 +85,6 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(payload))
-
 	if err != nil {
 		return nil, fmt.Errorf("create AgentSupervisor decision request: %w", err)
 	}
