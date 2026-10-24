@@ -66,6 +66,7 @@ var (
 )
 
 func validatePoADStartupConfig(required bool, registryPath, registrySHA256, manifestPath, manifestSHA256 string) error {
+
 	if required && (registryPath == "" || manifestPath == "") {
 		return fmt.Errorf("-poad-required needs a trusted identity registry and a payment-intent manifest")
 	}
@@ -93,7 +94,9 @@ func validatePoADStartupConfig(required bool, registryPath, registrySHA256, mani
 }
 
 func validatePoADProviderConfig(required bool, endpoint string, timeoutSeconds, requiredVotes int, manifestPath string) error {
+
 	if endpoint == "" {
+
 		if required {
 			return fmt.Errorf("-poad-required needs -poad-agent-supervisor-endpoint so the leader can build PoAD metadata")
 		}
@@ -103,12 +106,15 @@ func validatePoADProviderConfig(required bool, endpoint string, timeoutSeconds, 
 	if !required {
 		return fmt.Errorf("-poad-agent-supervisor-endpoint requires -poad-required")
 	}
+
 	if manifestPath == "" {
 		return fmt.Errorf("-poad-agent-supervisor-endpoint requires -poad-intent-manifest")
 	}
+
 	if timeoutSeconds <= 0 {
 		return fmt.Errorf("AgentSupervisor timeout must be positive")
 	}
+
 	if requiredVotes < 1 {
 		return fmt.Errorf("-poad-required-votes must be positive")
 	}
@@ -119,11 +125,13 @@ func main() {
 	flag.Parse()
 
 	lp, err := config.LoadLocalParams()
+
 	if err != nil {
 		log.Fatal(fmt.Errorf("load local parameters failed: %w", err))
 	}
 
 	cfg, err := config.LoadConfig(*configPath)
+
 	if err != nil {
 		log.Fatal(fmt.Errorf("load config: %w", err))
 	}
@@ -144,11 +152,13 @@ func main() {
 
 	if *poadRegistryPath != "" {
 		registryBytes, readErr := os.ReadFile(*poadRegistryPath)
+
 		if readErr != nil {
 			log.Fatal(fmt.Errorf("read PoAD identity registry: %w", readErr))
 		}
 
 		registry, registryErr := poad.LoadIdentityRegistryJSON(registryBytes, *poadRegistrySHA256)
+
 		if registryErr != nil {
 			log.Fatal(fmt.Errorf("load trusted PoAD identity registry: %w", registryErr))
 		}
@@ -156,6 +166,7 @@ func main() {
 
 		if *poadIntentManifestPath != "" {
 			manifest, openErr := os.Open(*poadIntentManifestPath)
+
 			if openErr != nil {
 				log.Fatal(fmt.Errorf("open PoAD payment-intent manifest: %w", openErr))
 			}
@@ -197,6 +208,7 @@ func main() {
 	}
 
 	// set the default logger here
+
 	if err = logger.InitLogger(lp, cfg.LogCfg); err != nil {
 		log.Fatal(fmt.Errorf("init logger failed: %w", err))
 	}
@@ -204,16 +216,19 @@ func main() {
 	defer logger.CloseLoggerFile()
 
 	p2p, nodeM, err := loadnetwork.PrepareNetworkByCfg(cfg, lp)
+
 	if err != nil {
 		log.Fatal(fmt.Errorf("prepare network: %w", err))
 	}
 
 	consensusNode, err := pbft.NewPBFTNode(network.NewConnHandler(p2p), nodeM, cfg.ConsensusNodeCfg, *lp)
+
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to create a PBFT node: %w", err))
 	}
 
 	if poadValidator != nil {
+
 		if err := consensusNode.ConfigurePoADValidation(poadValidator, *poadRequired); err != nil {
 			log.Fatal(fmt.Errorf("configure PoAD proposal validation: %w", err))
 		}
@@ -231,9 +246,11 @@ func main() {
 			*poadDecisionEndpoint,
 			time.Duration(*poadDecisionTimeout)*time.Second,
 		)
+
 		if providerErr != nil {
 			log.Fatal(fmt.Errorf("configure AgentSupervisor decision provider: %w", providerErr))
 		}
+
 		if poadRegistry == nil || len(intentLinks) == 0 {
 			log.Fatal("AgentSupervisor decision provider requires a trusted registry and loaded intent manifest")
 		}
@@ -243,9 +260,11 @@ func main() {
 			provider,
 			*poadRequiredVotes,
 		)
+
 		if builderErr != nil {
 			log.Fatal(fmt.Errorf("create PoAD proposal builder: %w", builderErr))
 		}
+
 		if err := consensusNode.ConfigurePoADProposalBuilder(builder); err != nil {
 			log.Fatal(fmt.Errorf("configure PoAD proposal builder: %w", err))
 		}
