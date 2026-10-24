@@ -67,7 +67,6 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	intent TraceIntentLink,
 	stateRoot string,
 ) ([]SignedDecision, error) {
-
 	if p == nil || p.client == nil || p.endpoint == "" {
 		return nil, fmt.Errorf("AgentSupervisor decision provider is not configured")
 	}
@@ -91,6 +90,7 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	if err != nil {
 		return nil, fmt.Errorf("create AgentSupervisor decision request: %w", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
@@ -99,9 +99,10 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	if err != nil {
 		return nil, fmt.Errorf("request AgentSupervisor decisions: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	const maxResponseBytes = 4 << 20
+
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 
 	if err != nil {
@@ -117,6 +118,7 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	}
 
 	var result agentSupervisorDecisionResponse
+
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 
