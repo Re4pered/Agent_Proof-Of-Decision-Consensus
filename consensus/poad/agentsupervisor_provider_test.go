@@ -29,7 +29,7 @@ func TestAgentSupervisorDecisionProviderCollectsSignedDecisions(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"decisions":[{"decision":{"agent_id":"agent-1","transaction_hash":"tx","state_root":"root","result":"ACCEPT","policy_version":"poad-rules-v1"},"signature":"AQ=="}]}`))
+		_, _ = w.Write([]byte(`{"decisions":[{"decision":{"AgentID":"agent-1","TransactionHash":"tx","StateRoot":"root","Result":"ACCEPT","PolicyVersion":"poad-rules-v1"},"signature":"AQ=="}]}`))
 	}))
 	defer server.Close()
 
