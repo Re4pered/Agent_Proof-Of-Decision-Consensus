@@ -100,7 +100,12 @@ func validatePoADStartupConfig(required bool, registryPath, registrySHA256, mani
 	return nil
 }
 
-func validatePoADProviderConfig(required bool, endpoint string, timeoutSeconds, requiredVotes int, manifestPath string) error {
+func validatePoADProviderConfig(
+	required bool,
+	endpoint string,
+	timeoutSeconds, requiredVotes int,
+	manifestPath string,
+) error {
 	if endpoint == "" {
 		if required {
 			return fmt.Errorf("-poad-required needs -poad-agent-supervisor-endpoint so the leader can build PoAD metadata")
