@@ -64,48 +64,60 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 	if b == nil || b.registry == nil || b.provider == nil {
 		return fmt.Errorf("PoAD payment proposal builder is not configured")
 	}
+	
 	if blockValue == nil {
 		return fmt.Errorf("proposal block is required")
 	}
+	
 	if blockValue.Type == block.MigrationBlockType {
 		return nil
 	}
+	
 	if len(blockValue.TxList) != 1 {
 		return fmt.Errorf("PoAD payment proposal requires exactly one transaction")
 	}
+	
 	if len(blockValue.StateRoot) == 0 {
 		return fmt.Errorf("validated block state root is required")
 	}
 
 	tx := blockValue.TxList[0]
+
 	hashBytes, err := tx.Hash()
 	if err != nil {
 		return fmt.Errorf("hash proposal transaction: %w", err)
 	}
+
 	txHash := hex.EncodeToString(hashBytes)
 
+	
 	intent, err := FindIntentForTransaction(b.intentLinks, tx)
 	if err != nil {
 		return fmt.Errorf("resolve AgentSupervisor intent for proposal transaction: %w", err)
 	}
+
 	status, reasons, err := VerifyPaymentIntent(intent, tx)
 	if err != nil {
 		return fmt.Errorf("verify AgentSupervisor payment intent: %w", err)
 	}
+
 	if status != Pass {
 		return fmt.Errorf("AgentSupervisor payment intent rejected proposal: %v", reasons)
 	}
+
 
 	decisions, err := b.provider.CollectSignedDecisions(ctx, tx, intent, hex.EncodeToString(blockValue.StateRoot))
 	if err != nil {
 		return fmt.Errorf("collect independently signed Agent decisions: %w", err)
 	}
+
 	if len(decisions) == 0 {
 		return fmt.Errorf("signed Agent decision provider returned no decisions")
 	}
+
 	for i, signed := range decisions {
 		if signed.Decision.TransactionHash != txHash {
-			return fmt.Errorf("Agent decision %d is bound to a different transaction", i)
+			return fmt.Errorf("agent decision %d is bound to a different transaction", i)
 		}
 		if err := b.registry.VerifyDecision(signed); err != nil {
 			return fmt.Errorf("verify Agent decision %d: %w", i, err)
