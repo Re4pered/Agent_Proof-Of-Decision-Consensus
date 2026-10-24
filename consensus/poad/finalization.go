@@ -91,6 +91,12 @@ func VerifyBlockFinalization(
 		return fmt.Errorf("finalization state root does not match independently validated state root")
 	}
 
+	for i, signed := range decisions {
+		if signed.Decision.StateRoot != expectedStateRoot {
+			return fmt.Errorf("decision %d is bound to a different state root", i)
+		}
+	}
+
 	expected, err := PrepareBlockFinalization(
 		registry,
 		decisions,
