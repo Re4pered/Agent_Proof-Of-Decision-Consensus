@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/HuangLab-SYSU/block-emulator-x/cmd/loadnetwork"
 	"github.com/HuangLab-SYSU/block-emulator-x/config"
@@ -136,7 +137,6 @@ func main() {
 	}
 
 	cfg, err := config.LoadConfig(*configPath)
-
 	if err != nil {
 		log.Fatal(fmt.Errorf("load config: %w", err))
 	}
@@ -159,7 +159,6 @@ func main() {
 
 	if *poadRegistryPath != "" {
 		registryBytes, readErr := os.ReadFile(*poadRegistryPath)
-
 		if readErr != nil {
 			log.Fatal(fmt.Errorf("read PoAD identity registry: %w", readErr))
 		}
@@ -250,7 +249,6 @@ func main() {
 			*poadDecisionEndpoint,
 			time.Duration(*poadDecisionTimeout)*time.Second,
 		)
-
 		if providerErr != nil {
 			log.Fatal(fmt.Errorf("configure AgentSupervisor decision provider: %w", providerErr))
 		}
