@@ -200,7 +200,16 @@ func (c *Chain) GetAccountLocationsInTxs(
 }
 
 // ValidateBlock validates blocks according to the chain's config.
-func (c *Chain) ValidateBlock(_ context.Context, b *block.Block) error {
+func (c *Chain) ValidateBlock(ctx context.Context, b *block.Block) error {
+	if b == nil {
+		return fmt.Errorf("block is required")
+	}
+
+	// Serialize validation against AddBlock/GenerateBlock so the preview uses a
+	// consistent parent state and trie snapshot.
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
 	// Validate the transaction part.
 	tH, err := c.calcTxHeaderOpt(b.Body)
 	if err != nil {
@@ -223,6 +232,22 @@ func (c *Chain) ValidateBlock(_ context.Context, b *block.Block) error {
 
 	if !bytes.Equal(mH.MigratedAccountsRoot, b.MigratedAccountsRoot) {
 		return fmt.Errorf("migration root mismatch")
+	}
+
+	// Re-execute the block against the current parent state without committing
+	// the resulting trie. A PoAD envelope binding alone cannot prove that the
+	// declared state root is the deterministic result of this block.
+	stateRoot, locationRoot, err := c.previewStateRootByBlock(ctx, b)
+	if err != nil {
+		return fmt.Errorf("preview block state transition: %w", err)
+	}
+
+	if !bytes.Equal(stateRoot, b.StateRoot) {
+		return fmt.Errorf("state root mismatch")
+	}
+
+	if !bytes.Equal(locationRoot, b.LocationRoot) {
+		return fmt.Errorf("location root mismatch")
 	}
 
 	return nil

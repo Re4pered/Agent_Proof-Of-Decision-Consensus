@@ -48,6 +48,52 @@ type Node struct {
 	pbftMsgHandler map[string]messageHandleFunc
 }
 
+// ConfigurePoADValidation installs the proposal-level PoAD verifier.
+// Call this after NewPBFTNode and before Start. Every validator must use the same
+// authenticated identity-registry snapshot and the same requirePoAD policy.
+// ConfigurePoADProposalBuilder installs leader-side PoAD metadata generation.
+// Configure it before Start when PoAD is required for transaction blocks.
+func (n *Node) ConfigurePoADProposalBuilder(builder insideop.PoADProposalBuilder) error {
+	if n == nil {
+		return fmt.Errorf("PBFT node is required")
+	}
+
+	if builder == nil {
+		return fmt.Errorf("PoAD proposal builder is required")
+	}
+
+	configurable, ok := n.iop.(insideop.PoADProposalBuildConfigurable)
+	if !ok {
+		return fmt.Errorf("shard operation does not support PoAD proposal building")
+	}
+
+	configurable.SetPoADProposalBuilder(builder)
+
+	return nil
+}
+
+func (n *Node) ConfigurePoADValidation(
+	validator insideop.PoADBlockValidator,
+	requireForTransactionBlocks bool,
+) error {
+	if n == nil {
+		return fmt.Errorf("PBFT node is required")
+	}
+
+	if validator == nil {
+		return fmt.Errorf("PoAD block validator is required")
+	}
+
+	configurable, ok := n.iop.(insideop.PoADConfigurable)
+	if !ok {
+		return fmt.Errorf("shard operation does not support PoAD validation")
+	}
+
+	configurable.SetPoADValidation(validator, requireForTransactionBlocks)
+
+	return nil
+}
+
 // NewPBFTNode creates a new node running PBFT consensus with given configurations.
 func NewPBFTNode(
 	conn *network.ConnHandler,
@@ -226,6 +272,47 @@ func (n *Node) handleStopConsensus(ctx context.Context, _ []byte) error {
 	return nil
 }
 
+// validatePreprepareDigest ensures the PBFT vote digest commits to the exact proposal
+// carried by the Pre-Prepare message.
+func validatePreprepareDigest(ppMsg *message.PreprepareMsg) error {
+	if ppMsg == nil {
+		return fmt.Errorf("preprepare message is required")
+	}
+
+	expectedDigest, err := ppMsg.P.Hash()
+	if err != nil {
+		return fmt.Errorf("hash preprepare proposal: %w", err)
+	}
+
+	if !bytes.Equal(ppMsg.Digest, expectedDigest) {
+		return fmt.Errorf("preprepare digest does not match proposal hash")
+	}
+
+	return nil
+}
+
+// validateConsensusSender checks that a PBFT message claims a node ID in this
+// node's configured shard. This rejects unknown IDs and cross-shard vote injection;
+// transport-level peer authentication must still bind the payload identity to sender.
+func (n *Node) validateConsensusSender(shardID, nodeID int64) error {
+	if shardID != n.pbftMeta.lp.ShardID {
+		return fmt.Errorf("consensus message shard mismatch: got %d, want %d", shardID, n.pbftMeta.lp.ShardID)
+	}
+
+	members, err := n.resolver.GetNodesInShard(n.pbftMeta.lp.ShardID)
+	if err != nil {
+		return fmt.Errorf("get consensus shard members: %w", err)
+	}
+
+	for _, member := range members {
+		if member.ShardID == shardID && member.NodeID == nodeID {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("node %d is not a member of shard %d", nodeID, shardID)
+}
+
 func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 	var ppMsg message.PreprepareMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&ppMsg); err != nil {
@@ -241,10 +328,18 @@ func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 		ppMsg.NodeID,
 	)
 
+	if err := n.validateConsensusSender(ppMsg.ShardID, ppMsg.NodeID); err != nil {
+		return fmt.Errorf("validate ppMsg sender: %w", err)
+	}
+
 	// ignore the out-of-date message
 	if n.pbftMeta.curViewSeq.Compare(basicstructs.ViewSeq{View: ppMsg.View, Seq: ppMsg.Seq}) > 0 {
 		slog.InfoContext(ctx, "handle out-of-date Preprepare, ignore it", "view", ppMsg.View, "seq", ppMsg.Seq)
 		return nil
+	}
+
+	if err := validatePreprepareDigest(&ppMsg); err != nil {
+		return fmt.Errorf("validate preprepare digest: %w", err)
 	}
 
 	if err := n.iop.ValidateProposal(ctx, &ppMsg.P); err != nil {
@@ -257,6 +352,7 @@ func (n *Node) handlePreprepare(ctx context.Context, payload []byte) error {
 	return nil
 }
 
+//nolint:dupl // Prepare and Commit intentionally share the same validation sequence.
 func (n *Node) handlePrepare(ctx context.Context, payload []byte) error {
 	var pMsg message.PrepareMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&pMsg); err != nil {
@@ -272,6 +368,10 @@ func (n *Node) handlePrepare(ctx context.Context, payload []byte) error {
 		pMsg.NodeID,
 	)
 
+	if err := n.validateConsensusSender(pMsg.ShardID, pMsg.NodeID); err != nil {
+		return fmt.Errorf("validate pMsg sender: %w", err)
+	}
+
 	// ignore the out-of-date message
 	if n.pbftMeta.curViewSeq.Compare(basicstructs.ViewSeq{View: pMsg.View, Seq: pMsg.Seq}) > 0 {
 		slog.InfoContext(ctx, "handle out-of-date Prepare, ignore it", "view", pMsg.View, "seq", pMsg.Seq)
@@ -283,6 +383,7 @@ func (n *Node) handlePrepare(ctx context.Context, payload []byte) error {
 	return nil
 }
 
+//nolint:dupl // Prepare and Commit have intentionally parallel decoding and validation paths.
 func (n *Node) handleCommit(ctx context.Context, payload []byte) error {
 	var cMsg message.CommitMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&cMsg); err != nil {
@@ -298,6 +399,10 @@ func (n *Node) handleCommit(ctx context.Context, payload []byte) error {
 		cMsg.NodeID,
 	)
 
+	if err := n.validateConsensusSender(cMsg.ShardID, cMsg.NodeID); err != nil {
+		return fmt.Errorf("validate cMsg sender: %w", err)
+	}
+
 	// ignore the out-of-date message
 	if n.pbftMeta.curViewSeq.Compare(basicstructs.ViewSeq{View: cMsg.View, Seq: cMsg.Seq}) > 0 {
 		slog.InfoContext(ctx, "handle out-of-date Commit, ignore it", "view", cMsg.View, "seq", cMsg.Seq)
@@ -309,10 +414,28 @@ func (n *Node) handleCommit(ctx context.Context, payload []byte) error {
 	return nil
 }
 
+// validateCatchupRequest rejects requests from unknown or cross-shard nodes and
+// invalid heights before the request can trigger block reads and network responses.
+func (n *Node) validateCatchupRequest(shardID, nodeID, startBlockHeight int64) error {
+	if err := n.validateConsensusSender(shardID, nodeID); err != nil {
+		return fmt.Errorf("validate requester identity: %w", err)
+	}
+
+	if startBlockHeight < 0 {
+		return fmt.Errorf("catch-up start height must be non-negative: %d", startBlockHeight)
+	}
+
+	return nil
+}
+
 func (n *Node) handleCatchupReq(ctx context.Context, payload []byte) error {
 	var crMsg message.CatchupReqMsg
 	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(&crMsg); err != nil {
 		return fmt.Errorf("decode catchup req msg: %w", err)
+	}
+
+	if err := n.validateCatchupRequest(crMsg.ShardID, crMsg.NodeID, crMsg.StartBlockHeight); err != nil {
+		return fmt.Errorf("validate catch-up request: %w", err)
 	}
 
 	slog.InfoContext(ctx, "handle catch up req message", "from shardID", crMsg.ShardID, "from nodeID", crMsg.NodeID)
@@ -351,6 +474,10 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 
 	slog.InfoContext(ctx, "handle catch up resp message")
 
+	if err := n.validateConsensusSender(crMsg.ShardID, crMsg.NodeID); err != nil {
+		return fmt.Errorf("validate catch-up response sender: %w", err)
+	}
+
 	if n.pbftMeta.leader != crMsg.NodeID {
 		return fmt.Errorf("the catchup response message is not from the leader, from nodeID=%d", crMsg.NodeID)
 	}
@@ -359,8 +486,22 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("catchup resp message not started")
 	}
 
-	// Add blocks.
-	for _, p := range crMsg.Proposals {
+	// Preflight the entire response's chain structure before changing local state.
+	// Full block/state validation must then remain sequential: each block is checked
+	// against the parent state produced by the preceding AddBlock.
+	if err := validateCatchupChainStructure(crMsg.Proposals, n.bc.GetCurHeader()); err != nil {
+		return fmt.Errorf("preflight catch-up chain: %w", err)
+	}
+
+	// Validate and persist in order so state-transition validation sees each
+	// preceding block. Chain.AddBlock is not atomic; a storage failure can still
+	// leave a partially applied batch, which requires a future storage-layer fix.
+	for i := range crMsg.Proposals {
+		p := &crMsg.Proposals[i]
+		if err := n.iop.ValidateProposal(ctx, p); err != nil {
+			return fmt.Errorf("validate catch-up proposal at height=%d: %w", p.Block.Number, err)
+		}
+
 		if err := n.bc.AddBlock(ctx, p.Block); err != nil {
 			return fmt.Errorf("add block failed, height=%d, err: %w", p.Block.Number, err)
 		}
@@ -368,6 +509,48 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 
 	// Set catchup states.
 	n.pbftMeta.catchupOverAndReset(basicstructs.ViewSeq{View: crMsg.NextView, Seq: crMsg.NextSeq})
+
+	return nil
+}
+
+// validateCatchupChainStructure checks that a catch-up batch is contiguous with the
+// local chain before any block is persisted. State-transition validation remains
+// sequential and is performed by ValidateProposal immediately before each AddBlock.
+func validateCatchupChainStructure(proposals []message.Proposal, currentHeader block.Header) error {
+	expectedHeight := currentHeader.Number + 1
+
+	expectedParentHash, err := currentHeader.Hash()
+	if err != nil {
+		return fmt.Errorf("hash local catch-up parent: %w", err)
+	}
+
+	for i := range proposals {
+		proposal := &proposals[i]
+
+		if proposal.Block == nil {
+			return fmt.Errorf("catch-up proposal block is required at index=%d", i)
+		}
+
+		if proposal.Block.Number != expectedHeight {
+			return fmt.Errorf(
+				"catch-up block height mismatch at index=%d: got %d, want %d",
+				i,
+				proposal.Block.Number,
+				expectedHeight,
+			)
+		}
+
+		if !bytes.Equal(proposal.Block.ParentBlockHash, expectedParentHash) {
+			return fmt.Errorf("catch-up parent hash mismatch at height=%d", proposal.Block.Number)
+		}
+
+		expectedParentHash, err = proposal.Block.Hash()
+		if err != nil {
+			return fmt.Errorf("hash catch-up block header at height=%d: %w", proposal.Block.Number, err)
+		}
+
+		expectedHeight++
+	}
 
 	return nil
 }
@@ -445,6 +628,12 @@ func (n *Node) propose(ctx context.Context) error {
 	// If the proposal is nil, skip this propose operation.
 	if p == nil {
 		return nil
+	}
+
+	// The leader must apply exactly the same block and PoAD checks as followers
+	// before disseminating a proposal. A failed local validation must not enter PBFT.
+	if err := n.iop.ValidateProposal(ctx, p); err != nil {
+		return fmt.Errorf("validate local proposal before broadcast: %w", err)
 	}
 
 	// wrap and encode msg

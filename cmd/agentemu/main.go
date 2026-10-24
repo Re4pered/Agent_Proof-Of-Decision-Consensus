@@ -37,13 +37,16 @@ func main() {
 
 	var chain *agentsupervisor.ChainRunner
 	if cfg.Chain.Enabled {
+		// One round's chain execution nests in <ResultDir>/round_%03d/chain.
 		chain = &agentsupervisor.ChainRunner{
-			ModuleRoot: cfg.Base.ModuleRoot,
-			BaseConfig: cfg.Base.BlockEmulatorConfig,
-			// One round's chain execution nests in <ResultDir>/round_%03d/chain.
-			WorkRoot:      cfg.Base.ResultDir,
-			RunTimeout:    time.Duration(cfg.Chain.RunTimeoutSeconds) * time.Second,
-			NodeExitGrace: time.Duration(cfg.Chain.NodeExitGraceSeconds) * time.Second,
+			ModuleRoot:         cfg.Base.ModuleRoot,
+			BaseConfig:         cfg.Base.BlockEmulatorConfig,
+			WorkRoot:           cfg.Base.ResultDir,
+			RunTimeout:         time.Duration(cfg.Chain.RunTimeoutSeconds) * time.Second,
+			NodeExitGrace:      time.Duration(cfg.Chain.NodeExitGraceSeconds) * time.Second,
+			PoADRegistryPath:   cfg.Chain.PoADRegistryPath,
+			PoADRegistrySHA256: cfg.Chain.PoADRegistrySHA256,
+			PoADRequired:       cfg.Chain.PoADRequired,
 		}
 		if err := chain.Build(ctx); err != nil {
 			slog.Error("build blockemulator binaries", "err", err)
