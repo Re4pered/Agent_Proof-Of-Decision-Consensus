@@ -87,7 +87,7 @@ func TestAttachVerifiedBlockEvidenceBindsBlockAndStateRoot(t *testing.T) {
 		block.MigrationOpt{},
 	)
 	decision := Decision{
-		AgentID: "agent-1", TransactionHash: txHash, Result: Accept,
+		AgentID: "agent-1", TransactionHash: txHash, StateRoot: hex.EncodeToString(b.StateRoot), Result: Accept,
 		PolicyVersion: DefaultPolicyVersion,
 	}
 	signed, err := SignDecision(decision, privateKey)
