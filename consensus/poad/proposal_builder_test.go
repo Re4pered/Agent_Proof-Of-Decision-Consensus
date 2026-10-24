@@ -3,9 +3,13 @@ package poad
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
@@ -163,5 +167,63 @@ func TestPaymentProposalBuilderRejectsDecisionForDifferentStateRoot(t *testing.T
 	}
 	if len(b.PoADRoot) != 0 || len(b.PoADData) != 0 {
 		t.Fatal("state-root mismatch must not attach PoAD metadata")
+	}
+}
+
+
+func TestAgentSupervisorHTTPProviderBuildsVerifiablePoADProposal(t *testing.T) {
+	intent, tx := paymentFixture()
+	stateRoot := []byte{1, 2, 3}
+	registry, decisions := makeSignedPaymentDecisions(t, tx, 2, stateRoot)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("request method = %q, want POST", r.Method)
+		}
+		var request agentSupervisorDecisionRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode AgentSupervisor request: %v", err)
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+		if request.StateRoot != hex.EncodeToString(stateRoot) {
+			t.Errorf("request state_root = %q, want %q", request.StateRoot, hex.EncodeToString(stateRoot))
+		}
+		if request.Intent.RequestID != intent.RequestID {
+			t.Errorf("request intent ID = %q, want %q", request.Intent.RequestID, intent.RequestID)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(agentSupervisorDecisionResponse{Decisions: decisions}); err != nil {
+			t.Errorf("encode AgentSupervisor response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	provider, err := NewAgentSupervisorDecisionProvider(server.URL, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	builder, err := NewPaymentProposalBuilder(registry, []TraceIntentLink{intent}, provider, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposalBlock := block.NewBlock(
+		block.Header{Type: block.TxBlockType, StateRoot: stateRoot},
+		block.Body{TxList: []transaction.Transaction{tx}},
+		block.MigrationOpt{},
+	)
+	if err := builder.BuildPoADMetadata(context.Background(), proposalBlock); err != nil {
+		t.Fatalf("BuildPoADMetadata() error = %v", err)
+	}
+	validator, err := NewBlockMetadataValidatorWithIntentLinks(registry, []TraceIntentLink{intent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validator.ValidatePoADBlock(proposalBlock); err != nil {
+		t.Fatalf("ValidatePoADBlock() error = %v", err)
+	}
+	if len(proposalBlock.PoADRoot) == 0 || len(proposalBlock.PoADData) == 0 {
+		t.Fatal("expected verifiable PoAD metadata to be attached")
 	}
 }
