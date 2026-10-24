@@ -7,9 +7,9 @@ import (
 func TestPrepareAndVerifyBlockFinalization(t *testing.T) {
 	registry := NewIdentityRegistry()
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-3", Abstain, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
+		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
+		signedTestDecision(t, registry, "agent-3", Abstain, "tx-1", DefaultPolicyVersion, "state-root-123"),
 	}
 
 	record, err := PrepareBlockFinalization(
@@ -36,8 +36,8 @@ func TestPrepareAndVerifyBlockFinalization(t *testing.T) {
 func TestPrepareBlockFinalizationRejectsMissingQuorum(t *testing.T) {
 	registry := NewIdentityRegistry()
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-2", Reject, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
+		signedTestDecision(t, registry, "agent-2", Reject, "tx-1", DefaultPolicyVersion, "state-root-123"),
 	}
 
 	if _, err := PrepareBlockFinalization(
@@ -55,7 +55,7 @@ func TestPrepareBlockFinalizationRejectsMissingQuorum(t *testing.T) {
 func TestPrepareBlockFinalizationRequiresStateRoot(t *testing.T) {
 	registry := NewIdentityRegistry()
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
 	}
 
 	if _, err := PrepareBlockFinalization(
@@ -73,7 +73,7 @@ func TestPrepareBlockFinalizationRequiresStateRoot(t *testing.T) {
 func TestVerifyBlockFinalizationRejectsTamperedRecord(t *testing.T) {
 	registry := NewIdentityRegistry()
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
 	}
 
 	record, err := PrepareBlockFinalization(
