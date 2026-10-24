@@ -89,7 +89,6 @@ func TestValidatePoADProposalRequiresMetadataWhenConfigured(t *testing.T) {
 	}
 }
 
-
 func TestValidatePoADProposalRejectsMultiTransactionBlockWhenRequired(t *testing.T) {
 	b := block.NewBlock(
 		block.Header{Type: block.TxBlockType},
@@ -154,8 +153,9 @@ func TestValidatePoADProposalExemptsMigrationBlockFromRequiredMetadata(t *testin
 	}
 }
 
-
-func buildRealPoADValidationFixture(t *testing.T) (*block.Block, *poad.BlockMetadataValidator) {
+func buildRealPoADValidationFixture(
+	t *testing.T,
+) (*block.Block, *poad.BlockMetadataValidator) {
 	t.Helper()
 
 	tx := transaction.Transaction{
