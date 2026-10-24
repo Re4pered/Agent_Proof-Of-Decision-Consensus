@@ -25,7 +25,7 @@ func (p *testSignedDecisionProvider) CollectSignedDecisions(_ context.Context, _
 	return p.decisions, nil
 }
 
-func makeSignedPaymentDecisions(t *testing.T, tx transaction.Transaction, count int) (*IdentityRegistry, []SignedDecision) {
+func makeSignedPaymentDecisions(t *testing.T, tx transaction.Transaction, count int, stateRoot []byte) (*IdentityRegistry, []SignedDecision) {
 	t.Helper()
 	hashBytes, err := tx.Hash()
 	if err != nil {
@@ -45,6 +45,7 @@ func makeSignedPaymentDecisions(t *testing.T, tx transaction.Transaction, count 
 		decision, err := Evaluate(VerificationInput{
 			AgentID:         agentID,
 			TransactionHash: hex.EncodeToString(hashBytes),
+			StateRoot:       hex.EncodeToString(stateRoot),
 			Transaction:     Pass,
 			State:           Pass,
 			Intent:          Pass,
@@ -64,7 +65,7 @@ func makeSignedPaymentDecisions(t *testing.T, tx transaction.Transaction, count 
 
 func TestPaymentProposalBuilderAttachesIndependentlySignedDecisions(t *testing.T) {
 	intent, tx := paymentFixture()
-	registry, decisions := makeSignedPaymentDecisions(t, tx, 2)
+	registry, decisions := makeSignedPaymentDecisions(t, tx, 2, []byte{1, 2, 3})
 	provider := &testSignedDecisionProvider{decisions: decisions}
 	builder, err := NewPaymentProposalBuilder(registry, []TraceIntentLink{intent}, provider, 2)
 	if err != nil {
@@ -102,7 +103,7 @@ func TestPaymentProposalBuilderFailsClosedWithoutProvider(t *testing.T) {
 
 func TestPaymentProposalBuilderPropagatesProviderFailure(t *testing.T) {
 	intent, tx := paymentFixture()
-	registry, _ := makeSignedPaymentDecisions(t, tx, 1)
+	registry, _ := makeSignedPaymentDecisions(t, tx, 1, []byte{1})
 	provider := &testSignedDecisionProvider{err: errors.New("agent supervisor unavailable")}
 	builder, err := NewPaymentProposalBuilder(registry, []TraceIntentLink{intent}, provider, 1)
 	if err != nil {
