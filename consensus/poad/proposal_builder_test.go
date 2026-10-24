@@ -143,3 +143,25 @@ func TestPaymentProposalBuilderRejectsTransactionIntentMismatch(t *testing.T) {
 		t.Fatal("provider must not be called after intent mismatch")
 	}
 }
+
+func TestPaymentProposalBuilderRejectsDecisionForDifferentStateRoot(t *testing.T) {
+	intent, tx := paymentFixture()
+	registry, decisions := makeSignedPaymentDecisions(t, tx, 1, []byte{9})
+	provider := &testSignedDecisionProvider{decisions: decisions}
+	builder, err := NewPaymentProposalBuilder(registry, []TraceIntentLink{intent}, provider, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b := block.NewBlock(
+		block.Header{Type: block.TxBlockType, StateRoot: []byte{1}},
+		block.Body{TxList: []transaction.Transaction{tx}},
+		block.MigrationOpt{},
+	)
+	if err := builder.BuildPoADMetadata(context.Background(), b); err == nil {
+		t.Fatal("expected a decision bound to a different state root to be rejected")
+	}
+	if len(b.PoADRoot) != 0 || len(b.PoADData) != 0 {
+		t.Fatal("state-root mismatch must not attach PoAD metadata")
+	}
+}
