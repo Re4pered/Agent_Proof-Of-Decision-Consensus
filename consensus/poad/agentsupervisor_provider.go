@@ -39,12 +39,15 @@ type agentSupervisorDecisionResponse struct {
 // AgentSupervisor endpoint. The endpoint must be an absolute HTTP(S) URL.
 func NewAgentSupervisorDecisionProvider(endpoint string, timeout time.Duration) (*AgentSupervisorDecisionProvider, error) {
 	endpoint = strings.TrimSpace(endpoint)
+
 	if endpoint == "" {
 		return nil, fmt.Errorf("AgentSupervisor decision endpoint is required")
 	}
+
 	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 		return nil, fmt.Errorf("AgentSupervisor decision endpoint must use HTTP or HTTPS")
 	}
+
 	if timeout <= 0 {
 		return nil, fmt.Errorf("AgentSupervisor decision timeout must be positive")
 	}
@@ -64,9 +67,11 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	intent TraceIntentLink,
 	stateRoot string,
 ) ([]SignedDecision, error) {
+
 	if p == nil || p.client == nil || p.endpoint == "" {
 		return nil, fmt.Errorf("AgentSupervisor decision provider is not configured")
 	}
+
 	if strings.TrimSpace(stateRoot) == "" {
 		return nil, fmt.Errorf("state root is required")
 	}
@@ -76,11 +81,13 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 		Intent:      intent,
 		StateRoot:   stateRoot,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("encode AgentSupervisor decision request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(payload))
+
 	if err != nil {
 		return nil, fmt.Errorf("create AgentSupervisor decision request: %w", err)
 	}
@@ -88,6 +95,7 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := p.client.Do(req)
+
 	if err != nil {
 		return nil, fmt.Errorf("request AgentSupervisor decisions: %w", err)
 	}
@@ -95,12 +103,15 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 
 	const maxResponseBytes = 4 << 20
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+
 	if err != nil {
 		return nil, fmt.Errorf("read AgentSupervisor decision response: %w", err)
 	}
+
 	if len(body) > maxResponseBytes {
 		return nil, fmt.Errorf("AgentSupervisor decision response exceeds %d bytes", maxResponseBytes)
 	}
+
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("AgentSupervisor decision endpoint returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
@@ -108,12 +119,15 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	var result agentSupervisorDecisionResponse
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
+
 	if err := decoder.Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode AgentSupervisor decision response: %w", err)
 	}
+
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return nil, fmt.Errorf("AgentSupervisor decision response contains trailing JSON data")
 	}
+
 	if len(result.Decisions) == 0 {
 		return nil, fmt.Errorf("AgentSupervisor returned no signed decisions")
 	}
