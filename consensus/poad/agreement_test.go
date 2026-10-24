@@ -4,10 +4,15 @@ import (
 	"testing"
 )
 
-func signedTestDecision(t *testing.T, registry *IdentityRegistry, agentID string, result Result, txHash, policy string) SignedDecision {
+func signedTestDecision(t *testing.T, registry *IdentityRegistry, agentID string, result Result, txHash, policy string, stateRoot ...string) SignedDecision {
 	t.Helper()
 
 	publicKey, privateKey := newTestKeyPair(t)
+	root := ""
+	if len(stateRoot) > 0 {
+		root = stateRoot[0]
+	}
+
 	if err := registry.Register(agentID, publicKey); err != nil {
 		t.Fatal(err)
 	}
@@ -15,6 +20,7 @@ func signedTestDecision(t *testing.T, registry *IdentityRegistry, agentID string
 	signed, err := SignDecision(Decision{
 		AgentID:         agentID,
 		TransactionHash: txHash,
+		StateRoot:       root,
 		Result:          result,
 		PolicyVersion:   policy,
 	}, privateKey)
