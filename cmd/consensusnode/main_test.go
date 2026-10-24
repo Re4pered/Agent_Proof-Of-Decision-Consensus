@@ -87,7 +87,9 @@ func TestValidatePoADStartupConfig(t *testing.T) {
 				tt.manifestPath,
 				tt.manifestSHA,
 			)
+
 			if tt.wantErr == "" {
+
 				if err != nil {
 					t.Fatalf("expected valid configuration, got error: %v", err)
 				}
@@ -97,6 +99,7 @@ func TestValidatePoADStartupConfig(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
 			}
+
 			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("expected error containing %q, got %q", tt.wantErr, err.Error())
 			}
@@ -126,12 +129,15 @@ func TestValidatePoADProviderConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validatePoADProviderConfig(tt.required, tt.endpoint, tt.timeout, tt.requiredVotes, tt.manifestPath)
+
 			if tt.wantErr == "" {
+
 				if err != nil {
 					t.Fatalf("expected valid configuration, got error: %v", err)
 				}
 				return
 			}
+
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
 			}
