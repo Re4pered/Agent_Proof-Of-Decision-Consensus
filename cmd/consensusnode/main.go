@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
-
-	_ "net/http/pprof"
 
 	"github.com/HuangLab-SYSU/block-emulator-x/cmd/loadnetwork"
 	"github.com/HuangLab-SYSU/block-emulator-x/config"
@@ -132,7 +131,6 @@ func main() {
 	flag.Parse()
 
 	lp, err := config.LoadLocalParams()
-
 	if err != nil {
 		log.Fatal(fmt.Errorf("load local parameters failed: %w", err))
 	}
@@ -167,15 +165,14 @@ func main() {
 		}
 
 		registry, registryErr := poad.LoadIdentityRegistryJSON(registryBytes, *poadRegistrySHA256)
-
 		if registryErr != nil {
 			log.Fatal(fmt.Errorf("load trusted PoAD identity registry: %w", registryErr))
 		}
+
 		poadRegistry = registry
 
 		if *poadIntentManifestPath != "" {
 			manifest, openErr := os.Open(*poadIntentManifestPath)
-
 			if openErr != nil {
 				log.Fatal(fmt.Errorf("open PoAD payment-intent manifest: %w", openErr))
 			}
@@ -268,7 +265,6 @@ func main() {
 			provider,
 			*poadRequiredVotes,
 		)
-
 		if builderErr != nil {
 			log.Fatal(fmt.Errorf("create PoAD proposal builder: %w", builderErr))
 		}
