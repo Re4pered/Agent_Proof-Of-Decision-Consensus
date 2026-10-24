@@ -8,14 +8,14 @@ import (
 	"os"
 	"time"
 
-	_ "net/http/pprof"
-
 	"github.com/HuangLab-SYSU/block-emulator-x/cmd/loadnetwork"
 	"github.com/HuangLab-SYSU/block-emulator-x/config"
 	"github.com/HuangLab-SYSU/block-emulator-x/consensus/pbft"
 	"github.com/HuangLab-SYSU/block-emulator-x/consensus/poad"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/logger"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/network"
+
+	_ "net/http/pprof"
 )
 
 const (
