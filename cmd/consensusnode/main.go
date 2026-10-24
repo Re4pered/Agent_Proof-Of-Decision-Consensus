@@ -108,7 +108,9 @@ func validatePoADProviderConfig(
 ) error {
 	if endpoint == "" {
 		if required {
-			return fmt.Errorf("-poad-required needs -poad-agent-supervisor-endpoint so the leader can build PoAD metadata")
+			return fmt.Errorf(
+				"-poad-required needs -poad-agent-supervisor-endpoint so the leader can build PoAD metadata",
+			)
 		}
 
 		return nil
