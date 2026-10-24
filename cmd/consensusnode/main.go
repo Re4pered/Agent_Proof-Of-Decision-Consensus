@@ -220,13 +220,11 @@ func main() {
 	defer logger.CloseLoggerFile()
 
 	p2p, nodeM, err := loadnetwork.PrepareNetworkByCfg(cfg, lp)
-
 	if err != nil {
 		log.Fatal(fmt.Errorf("prepare network: %w", err))
 	}
 
 	consensusNode, err := pbft.NewPBFTNode(network.NewConnHandler(p2p), nodeM, cfg.ConsensusNodeCfg, *lp)
-
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to create a PBFT node: %w", err))
 	}
