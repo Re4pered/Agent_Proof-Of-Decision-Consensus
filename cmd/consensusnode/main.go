@@ -16,7 +16,6 @@ import (
 	"github.com/HuangLab-SYSU/block-emulator-x/consensus/poad"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/logger"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/network"
-
 )
 
 const (
@@ -124,6 +123,7 @@ func validatePoADProviderConfig(required bool, endpoint string, timeoutSeconds, 
 	if requiredVotes < 1 {
 		return fmt.Errorf("-poad-required-votes must be positive")
 	}
+
 	return nil
 }
 
@@ -157,7 +157,6 @@ func main() {
 	var poadRegistry *poad.IdentityRegistry
 
 	var intentLinks []poad.TraceIntentLink
-
 
 	if *poadRegistryPath != "" {
 		registryBytes, readErr := os.ReadFile(*poadRegistryPath)
