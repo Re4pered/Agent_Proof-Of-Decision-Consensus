@@ -39,12 +39,15 @@ func NewPaymentProposalBuilder(
 	if registry == nil {
 		return nil, fmt.Errorf("trusted Agent identity registry is required")
 	}
+
 	if len(intentLinks) == 0 {
 		return nil, fmt.Errorf("trusted payment intent links are required")
 	}
+
 	if provider == nil {
 		return nil, fmt.Errorf("signed Agent decision provider is required")
 	}
+
 	if requiredVotes < 1 {
 		return nil, fmt.Errorf("required Agent decision votes must be positive")
 	}
@@ -64,19 +67,19 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 	if b == nil || b.registry == nil || b.provider == nil {
 		return fmt.Errorf("PoAD payment proposal builder is not configured")
 	}
-	
+
 	if blockValue == nil {
 		return fmt.Errorf("proposal block is required")
 	}
-	
+
 	if blockValue.Type == block.MigrationBlockType {
 		return nil
 	}
-	
+
 	if len(blockValue.TxList) != 1 {
 		return fmt.Errorf("PoAD payment proposal requires exactly one transaction")
 	}
-	
+
 	if len(blockValue.StateRoot) == 0 {
 		return fmt.Errorf("validated block state root is required")
 	}
@@ -90,7 +93,6 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 
 	txHash := hex.EncodeToString(hashBytes)
 
-	
 	intent, err := FindIntentForTransaction(b.intentLinks, tx)
 	if err != nil {
 		return fmt.Errorf("resolve AgentSupervisor intent for proposal transaction: %w", err)
@@ -105,7 +107,6 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 		return fmt.Errorf("AgentSupervisor payment intent rejected proposal: %v", reasons)
 	}
 
-
 	decisions, err := b.provider.CollectSignedDecisions(ctx, tx, intent, hex.EncodeToString(blockValue.StateRoot))
 	if err != nil {
 		return fmt.Errorf("collect independently signed Agent decisions: %w", err)
@@ -119,6 +120,7 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 		if signed.Decision.TransactionHash != txHash {
 			return fmt.Errorf("agent decision %d is bound to a different transaction", i)
 		}
+
 		if err := b.registry.VerifyDecision(signed); err != nil {
 			return fmt.Errorf("verify Agent decision %d: %w", i, err)
 		}
