@@ -234,3 +234,51 @@ func TestAgentSupervisorHTTPProviderBuildsVerifiablePoADProposal(t *testing.T) {
 		t.Fatal("expected verifiable PoAD metadata to be attached")
 	}
 }
+
+
+func TestPaymentProposalBuilderRejectsInsufficientDecisionQuorum(t *testing.T) {
+	intent, tx := paymentFixture()
+	stateRoot := []byte{1, 2, 3}
+	registry, decisions := makeSignedPaymentDecisions(t, tx, 1, stateRoot)
+	provider := &testSignedDecisionProvider{decisions: decisions}
+	builder, err := NewPaymentProposalBuilder(registry, []TraceIntentLink{intent}, provider, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposalBlock := block.NewBlock(
+		block.Header{Type: block.TxBlockType, StateRoot: stateRoot},
+		block.Body{TxList: []transaction.Transaction{tx}},
+		block.MigrationOpt{},
+	)
+	if err := builder.BuildPoADMetadata(context.Background(), proposalBlock); err == nil {
+		t.Fatal("expected proposal creation to fail when signed Agent decisions do not reach quorum")
+	}
+	if len(proposalBlock.PoADRoot) != 0 || len(proposalBlock.PoADData) != 0 {
+		t.Fatal("proposal without decision quorum must not carry PoAD metadata")
+	}
+}
+
+func TestPaymentProposalBuilderRejectsInvalidAgentDecisionSignature(t *testing.T) {
+	intent, tx := paymentFixture()
+	stateRoot := []byte{1, 2, 3}
+	registry, decisions := makeSignedPaymentDecisions(t, tx, 2, stateRoot)
+	decisions[0].Signature[0] ^= 0xff
+	provider := &testSignedDecisionProvider{decisions: decisions}
+	builder, err := NewPaymentProposalBuilder(registry, []TraceIntentLink{intent}, provider, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposalBlock := block.NewBlock(
+		block.Header{Type: block.TxBlockType, StateRoot: stateRoot},
+		block.Body{TxList: []transaction.Transaction{tx}},
+		block.MigrationOpt{},
+	)
+	if err := builder.BuildPoADMetadata(context.Background(), proposalBlock); err == nil {
+		t.Fatal("expected proposal creation to fail when an Agent decision signature is invalid")
+	}
+	if len(proposalBlock.PoADRoot) != 0 || len(proposalBlock.PoADData) != 0 {
+		t.Fatal("proposal with an invalid Agent signature must not carry PoAD metadata")
+	}
+}
