@@ -92,6 +92,7 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 	}
 
 	txHash := hex.EncodeToString(hashBytes)
+	stateRoot := hex.EncodeToString(blockValue.StateRoot)
 
 	intent, err := FindIntentForTransaction(b.intentLinks, tx)
 	if err != nil {
@@ -107,7 +108,7 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 		return fmt.Errorf("AgentSupervisor payment intent rejected proposal: %v", reasons)
 	}
 
-	decisions, err := b.provider.CollectSignedDecisions(ctx, tx, intent, hex.EncodeToString(blockValue.StateRoot))
+	decisions, err := b.provider.CollectSignedDecisions(ctx, tx, intent, stateRoot)
 	if err != nil {
 		return fmt.Errorf("collect independently signed Agent decisions: %w", err)
 	}
@@ -121,6 +122,10 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 			return fmt.Errorf("agent decision %d is bound to a different transaction", i)
 		}
 
+		if signed.Decision.StateRoot != stateRoot {
+			return fmt.Errorf("agent decision %d is bound to a different state root", i)
+		}
+
 		if err := b.registry.VerifyDecision(signed); err != nil {
 			return fmt.Errorf("verify Agent decision %d: %w", i, err)
 		}
@@ -132,7 +137,7 @@ func (b *PaymentProposalBuilder) BuildPoADMetadata(ctx context.Context, blockVal
 		txHash,
 		DefaultPolicyVersion,
 		b.requiredVotes,
-		hex.EncodeToString(blockValue.StateRoot),
+		stateRoot,
 	)
 	if err != nil {
 		return fmt.Errorf("prepare PoAD finalization: %w", err)
