@@ -114,7 +114,11 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	}
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("AgentSupervisor decision endpoint returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf(
+			"AgentSupervisor decision endpoint returned HTTP %d: %s",
+			resp.StatusCode,
+			strings.TrimSpace(string(body)),
+		)
 	}
 
 	var result agentSupervisorDecisionResponse
