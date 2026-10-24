@@ -21,6 +21,7 @@ func Evaluate(in VerificationInput) (Decision, error) {
 	d := Decision{
 		AgentID:         in.AgentID,
 		TransactionHash: in.TransactionHash,
+		StateRoot:       in.StateRoot,
 		PolicyVersion:   DefaultPolicyVersion,
 		Reasons:         make([]string, 0, 4),
 	}
