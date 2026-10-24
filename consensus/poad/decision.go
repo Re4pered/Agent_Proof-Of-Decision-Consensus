@@ -29,6 +29,7 @@ const (
 type VerificationInput struct {
 	AgentID         string
 	TransactionHash string
+	StateRoot       string
 	Transaction     CheckStatus
 	State           CheckStatus
 	Intent          CheckStatus
@@ -40,6 +41,7 @@ type VerificationInput struct {
 type Decision struct {
 	AgentID         string
 	TransactionHash string
+	StateRoot       string
 	Result          Result
 	Reasons         []string
 	PolicyVersion   string
