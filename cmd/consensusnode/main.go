@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	_ "net/http/pprof"
+
 	"github.com/HuangLab-SYSU/block-emulator-x/cmd/loadnetwork"
 	"github.com/HuangLab-SYSU/block-emulator-x/config"
 	"github.com/HuangLab-SYSU/block-emulator-x/consensus/pbft"
@@ -15,7 +17,6 @@ import (
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/logger"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/network"
 
-	_ "net/http/pprof"
 )
 
 const (
@@ -61,12 +62,19 @@ var (
 		"",
 		"HTTP(S) endpoint that collects independently signed AgentSupervisor decisions",
 	)
-	poadDecisionTimeout = flag.Int("poad-agent-supervisor-timeout-seconds", 15, "AgentSupervisor decision request timeout in seconds")
-	poadRequiredVotes = flag.Int("poad-required-votes", 2, "minimum ACCEPT decisions required to finalize a PoAD payment block")
+	poadDecisionTimeout = flag.Int(
+		"poad-agent-supervisor-timeout-seconds",
+		15,
+		"AgentSupervisor decision request timeout in seconds",
+	)
+	poadRequiredVotes = flag.Int(
+		"poad-required-votes",
+		2,
+		"minimum ACCEPT decisions required to finalize a PoAD payment block",
+	)
 )
 
 func validatePoADStartupConfig(required bool, registryPath, registrySHA256, manifestPath, manifestSHA256 string) error {
-
 	if required && (registryPath == "" || manifestPath == "") {
 		return fmt.Errorf("-poad-required needs a trusted identity registry and a payment-intent manifest")
 	}
@@ -94,9 +102,7 @@ func validatePoADStartupConfig(required bool, registryPath, registrySHA256, mani
 }
 
 func validatePoADProviderConfig(required bool, endpoint string, timeoutSeconds, requiredVotes int, manifestPath string) error {
-
 	if endpoint == "" {
-
 		if required {
 			return fmt.Errorf("-poad-required needs -poad-agent-supervisor-endpoint so the leader can build PoAD metadata")
 		}
@@ -147,8 +153,11 @@ func main() {
 	}
 
 	var poadValidator *poad.BlockMetadataValidator
+
 	var poadRegistry *poad.IdentityRegistry
+
 	var intentLinks []poad.TraceIntentLink
+
 
 	if *poadRegistryPath != "" {
 		registryBytes, readErr := os.ReadFile(*poadRegistryPath)
@@ -208,7 +217,6 @@ func main() {
 	}
 
 	// set the default logger here
-
 	if err = logger.InitLogger(lp, cfg.LogCfg); err != nil {
 		log.Fatal(fmt.Errorf("init logger failed: %w", err))
 	}
@@ -228,7 +236,6 @@ func main() {
 	}
 
 	if poadValidator != nil {
-
 		if err := consensusNode.ConfigurePoADValidation(poadValidator, *poadRequired); err != nil {
 			log.Fatal(fmt.Errorf("configure PoAD proposal validation: %w", err))
 		}
@@ -254,6 +261,7 @@ func main() {
 		if poadRegistry == nil || len(intentLinks) == 0 {
 			log.Fatal("AgentSupervisor decision provider requires a trusted registry and loaded intent manifest")
 		}
+
 		builder, builderErr := poad.NewPaymentProposalBuilder(
 			poadRegistry,
 			intentLinks,
@@ -268,7 +276,8 @@ func main() {
 		if err := consensusNode.ConfigurePoADProposalBuilder(builder); err != nil {
 			log.Fatal(fmt.Errorf("configure PoAD proposal builder: %w", err))
 		}
-		log.Printf("PoAD AgentSupervisor decision provider configured: endpoint=%s required_votes=%d", *poadDecisionEndpoint, *poadRequiredVotes)
+
+		log.Printf("PoAD AgentSupervisor decision provider configured: required_votes=%d", *poadRequiredVotes)
 	}
 
 	// Wait other nodes to start listening.
