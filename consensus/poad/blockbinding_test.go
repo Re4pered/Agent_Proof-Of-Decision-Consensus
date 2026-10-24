@@ -28,8 +28,8 @@ func buildPoADTestBlock(t *testing.T, registry *IdentityRegistry) (*block.Block,
 
 	txHash := hex.EncodeToString(txHashBytes)
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, txHash, DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-2", Accept, txHash, DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, txHash, DefaultPolicyVersion, hex.EncodeToString([]byte{0x01, 0x02, 0x03})),
+		signedTestDecision(t, registry, "agent-2", Accept, txHash, DefaultPolicyVersion, hex.EncodeToString([]byte{0x01, 0x02, 0x03})),
 	}
 	b := block.NewBlock(
 		block.Header{StateRoot: []byte{0x01, 0x02, 0x03}},
