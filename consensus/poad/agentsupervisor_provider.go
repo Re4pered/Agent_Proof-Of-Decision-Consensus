@@ -37,7 +37,10 @@ type agentSupervisorDecisionResponse struct {
 
 // NewAgentSupervisorDecisionProvider creates a bounded-time HTTP adapter for an
 // AgentSupervisor endpoint. The endpoint must be an absolute HTTP(S) URL.
-func NewAgentSupervisorDecisionProvider(endpoint string, timeout time.Duration) (*AgentSupervisorDecisionProvider, error) {
+func NewAgentSupervisorDecisionProvider(
+	endpoint string,
+	timeout time.Duration,
+) (*AgentSupervisorDecisionProvider, error) {
 	endpoint = strings.TrimSpace(endpoint)
 
 	if endpoint == "" {
@@ -102,7 +105,6 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	const maxResponseBytes = 4 << 20
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
-
 	if err != nil {
 		return nil, fmt.Errorf("read AgentSupervisor decision response: %w", err)
 	}
