@@ -80,7 +80,6 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 		Intent:      intent,
 		StateRoot:   stateRoot,
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("encode AgentSupervisor decision request: %w", err)
 	}
@@ -99,6 +98,7 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	if err != nil {
 		return nil, fmt.Errorf("request AgentSupervisor decisions: %w", err)
 	}
+
 	defer func() { _ = resp.Body.Close() }()
 
 	const maxResponseBytes = 4 << 20
