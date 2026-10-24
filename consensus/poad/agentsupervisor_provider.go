@@ -93,7 +93,6 @@ func (p *AgentSupervisorDecisionProvider) CollectSignedDecisions(
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := p.client.Do(req)
-
 	if err != nil {
 		return nil, fmt.Errorf("request AgentSupervisor decisions: %w", err)
 	}
