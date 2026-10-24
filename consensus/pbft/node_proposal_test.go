@@ -1,12 +1,15 @@
 package pbft
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/HuangLab-SYSU/block-emulator-x/config"
+	"github.com/HuangLab-SYSU/block-emulator-x/consensus/pbft/basicstructs"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/message"
 )
@@ -86,5 +89,47 @@ func TestValidatePreprepareDigestRejectsMismatch(t *testing.T) {
 func TestValidatePreprepareDigestRejectsNilMessage(t *testing.T) {
 	if err := validatePreprepareDigest(nil); err == nil {
 		t.Fatal("expected nil preprepare message to be rejected")
+	}
+}
+
+
+func TestHandlePreprepareRejectsInvalidPoADBeforeMessagePool(t *testing.T) {
+	wantErr := errors.New("invalid PoAD evidence")
+	op := &rejectingProposalOp{validationErr: wantErr}
+	node := senderValidationNode()
+	node.iop = op
+
+	proposal := &message.Proposal{
+		Block: block.NewBlock(block.Header{Number: 1}, block.Body{}, block.MigrationOpt{}),
+	}
+	digest, err := proposal.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ppMsg := message.PreprepareMsg{
+		P:       *proposal,
+		Digest:  digest,
+		ShardID: 1,
+		NodeID:  2,
+		View:    0,
+		Seq:     0,
+	}
+	var payload bytes.Buffer
+	if err := gob.NewEncoder(&payload).Encode(ppMsg); err != nil {
+		t.Fatal(err)
+	}
+
+	err = node.handlePreprepare(context.Background(), payload.Bytes())
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("handlePreprepare() error = %v, want %v", err, wantErr)
+	}
+	if op.validateCalls != 1 {
+		t.Fatalf("ValidateProposal calls = %d, want 1", op.validateCalls)
+	}
+	if got := node.pbftMeta.msgPool.ReadPreprepareMsg(basicstructs.ViewSeq{}); len(got) != 0 {
+		t.Fatalf("invalid PoAD preprepare entered message pool: got %d messages", len(got))
+	}
+	if got := node.pbftMeta.latestViewSeq; got != (basicstructs.ViewSeq{}) {
+		t.Fatalf("latest view/sequence advanced after rejected proposal: %+v", got)
 	}
 }
