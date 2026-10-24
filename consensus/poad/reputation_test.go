@@ -128,9 +128,9 @@ func TestNewReputationLedgerRejectsInvalidConfig(t *testing.T) {
 func TestApplyFinalizedDecisionsUpdatesOnlyAfterVerifiedFinalization(t *testing.T) {
 	registry := NewIdentityRegistry()
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-3", Abstain, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
+		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
+		signedTestDecision(t, registry, "agent-3", Abstain, "tx-1", DefaultPolicyVersion, "state-root-123"),
 	}
 	finalization, err := PrepareBlockFinalization(
 		registry,
@@ -162,7 +162,7 @@ func TestApplyFinalizedDecisionsUpdatesOnlyAfterVerifiedFinalization(t *testing.
 func TestApplyFinalizedDecisionsRejectsInvalidStateRootWithoutPartialUpdates(t *testing.T) {
 	registry := NewIdentityRegistry()
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
 	}
 	finalization, err := PrepareBlockFinalization(
 		registry,
@@ -189,8 +189,8 @@ func TestApplyFinalizedDecisionsRejectsInvalidStateRootWithoutPartialUpdates(t *
 func TestApplyFinalizedDecisionsRejectsReplayWithoutPartialUpdates(t *testing.T) {
 	registry := NewIdentityRegistry()
 	decisions := []SignedDecision{
-		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion),
-		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion),
+		signedTestDecision(t, registry, "agent-1", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
+		signedTestDecision(t, registry, "agent-2", Accept, "tx-1", DefaultPolicyVersion, "state-root-123"),
 	}
 	finalization, err := PrepareBlockFinalization(
 		registry,
