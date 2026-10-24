@@ -54,6 +54,8 @@ func BuildAndAttachPaymentPoADMetadata(
 	decisions := make([]SignedDecision, 0, len(validators))
 	for _, validator := range validators {
 		input := validator.Input
+		input.StateRoot = hex.EncodeToString(b.StateRoot)
+
 		if input.TransactionHash != hash {
 			return fmt.Errorf("validator %q transaction hash does not match payment transaction", input.AgentID)
 		}
