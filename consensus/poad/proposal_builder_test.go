@@ -125,7 +125,7 @@ func TestPaymentProposalBuilderPropagatesProviderFailure(t *testing.T) {
 func TestPaymentProposalBuilderRejectsTransactionIntentMismatch(t *testing.T) {
 	intent, tx := paymentFixture()
 	intent.Amount++
-	registry, decisions := makeSignedPaymentDecisions(t, tx, 1)
+	registry, decisions := makeSignedPaymentDecisions(t, tx, 1, []byte{1})
 	provider := &testSignedDecisionProvider{decisions: decisions}
 	builder, err := NewPaymentProposalBuilder(registry, []TraceIntentLink{intent}, provider, 1)
 	if err != nil {
