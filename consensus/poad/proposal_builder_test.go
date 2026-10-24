@@ -170,7 +170,6 @@ func TestPaymentProposalBuilderRejectsDecisionForDifferentStateRoot(t *testing.T
 	}
 }
 
-
 func TestAgentSupervisorHTTPProviderBuildsVerifiablePoADProposal(t *testing.T) {
 	intent, tx := paymentFixture()
 	stateRoot := []byte{1, 2, 3}
@@ -187,10 +186,18 @@ func TestAgentSupervisorHTTPProviderBuildsVerifiablePoADProposal(t *testing.T) {
 			return
 		}
 		if request.StateRoot != hex.EncodeToString(stateRoot) {
-			t.Errorf("request state_root = %q, want %q", request.StateRoot, hex.EncodeToString(stateRoot))
+			t.Errorf(
+				"request state_root = %q, want %q",
+				request.StateRoot,
+				hex.EncodeToString(stateRoot),
+			)
 		}
 		if request.Intent.RequestID != intent.RequestID {
-			t.Errorf("request intent ID = %q, want %q", request.Intent.RequestID, intent.RequestID)
+			t.Errorf(
+				"request intent ID = %q, want %q",
+				request.Intent.RequestID,
+				intent.RequestID,
+			)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(agentSupervisorDecisionResponse{Decisions: decisions}); err != nil {
