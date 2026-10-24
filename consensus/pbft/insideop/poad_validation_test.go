@@ -2,9 +2,16 @@ package insideop
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"math/big"
 	"testing"
 
+	"github.com/HuangLab-SYSU/block-emulator-x/consensus/poad"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/account"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
 )
@@ -144,5 +151,103 @@ func TestValidatePoADProposalExemptsMigrationBlockFromRequiredMetadata(t *testin
 	b := block.NewBlock(block.Header{Type: block.MigrationBlockType}, block.Body{}, block.MigrationOpt{})
 	if err := validatePoADProposal(b, &fakePoADBlockValidator{}, true); err != nil {
 		t.Fatalf("expected migration block to be exempt from transaction PoAD policy: %v", err)
+	}
+}
+
+
+func buildRealPoADValidationFixture(t *testing.T) (*block.Block, *poad.BlockMetadataValidator) {
+	t.Helper()
+
+	tx := transaction.Transaction{
+		Sender:      account.Address{1},
+		Recipient:   account.Address{2},
+		Value:       big.NewInt(1),
+		PriorityFee: big.NewInt(0),
+		GasLimit:    21000,
+	}
+	txHashBytes, err := tx.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateRoot := []byte{1, 2, 3}
+	txHash := hex.EncodeToString(txHashBytes)
+	stateRootHex := hex.EncodeToString(stateRoot)
+	registry := poad.NewIdentityRegistry()
+	decisions := make([]poad.SignedDecision, 0, 2)
+
+	for i := 1; i <= 2; i++ {
+		agentID := fmt.Sprintf("agent-%d", i)
+		publicKey, privateKey, err := poad.GenerateAgentKeyPair()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := registry.Register(agentID, publicKey); err != nil {
+			t.Fatal(err)
+		}
+		decision, err := poad.Evaluate(poad.VerificationInput{
+			AgentID:         agentID,
+			TransactionHash: txHash,
+			StateRoot:       stateRootHex,
+			Transaction:     poad.Pass,
+			State:           poad.Pass,
+			Intent:          poad.Pass,
+			Evidence:        poad.NotRequired,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		signed, err := poad.SignDecision(decision, privateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decisions = append(decisions, signed)
+	}
+
+	finalization, err := poad.PrepareBlockFinalization(
+		registry, decisions, txHash, poad.DefaultPolicyVersion, 2, stateRootHex,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposalBlock := block.NewBlock(
+		block.Header{Type: block.TxBlockType, StateRoot: stateRoot},
+		block.Body{TxList: []transaction.Transaction{tx}},
+		block.MigrationOpt{},
+	)
+	if err := poad.AttachBlockPoADMetadata(proposalBlock, registry, decisions, finalization); err != nil {
+		t.Fatal(err)
+	}
+	validator, err := poad.NewBlockMetadataValidator(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return proposalBlock, validator
+}
+
+func TestValidatePoADProposalAcceptsRealSignedDecisionEnvelope(t *testing.T) {
+	proposalBlock, validator := buildRealPoADValidationFixture(t)
+	if err := validatePoADProposal(proposalBlock, validator, true); err != nil {
+		t.Fatalf("expected real signed PoAD envelope to pass: %v", err)
+	}
+}
+
+func TestValidatePoADProposalRejectsTamperedAgentSignature(t *testing.T) {
+	proposalBlock, validator := buildRealPoADValidationFixture(t)
+
+	var envelope poad.BlockPoADEnvelope
+	if err := json.Unmarshal(proposalBlock.PoADData, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	envelope.Decisions[0].Signature[0] ^= 0xff
+	tampered, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := sha256.Sum256(tampered)
+	proposalBlock.PoADData = tampered
+	proposalBlock.PoADRoot = root[:]
+
+	if err := validatePoADProposal(proposalBlock, validator, true); err == nil {
+		t.Fatal("expected PBFT PoAD validation to reject a tampered Agent signature")
 	}
 }
