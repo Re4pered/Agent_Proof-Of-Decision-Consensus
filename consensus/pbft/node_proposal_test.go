@@ -20,6 +20,7 @@ import (
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/message"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/nodetopo"
 )
 
 type rejectingProposalOp struct {
