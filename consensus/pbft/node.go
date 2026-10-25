@@ -558,6 +558,17 @@ func validateCatchupChainStructure(proposals []message.Proposal, currentHeader b
 // step2NextStage steps to next pbft stage until it steps to the end
 func (n *Node) step2NextStage(ctx context.Context) error {
 	for {
+		// Revalidate the exact proposal against the local pre-commit state once a
+		// commit quorum is present. This closes the gap between pre-prepare
+		// validation and block application, including PoAD state-root binding.
+		if n.pbftMeta.stage == stageCommit &&
+			n.pbftMeta.curPreprepare != nil &&
+			len(n.pbftMeta.commitSet) >= int(2*n.pbftMeta.f+1) {
+			if err := n.iop.ValidateProposal(ctx, &n.pbftMeta.curPreprepare.P); err != nil {
+				return fmt.Errorf("revalidate proposal before commit: %w", err)
+			}
+		}
+
 		oldStage, newStage, err := n.pbftMeta.step2Next()
 		if err != nil {
 			return fmt.Errorf("step2NextStage: %w", err)
