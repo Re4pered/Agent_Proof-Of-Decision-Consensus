@@ -155,17 +155,38 @@ func (c *Chain) AddBlock(ctx context.Context, b *block.Block) error {
 		return fmt.Errorf("encode block header err: %w", err)
 	}
 
-	// Update the location trie and vm trie db.
+	// Capture the active location root before applying this block. Trie commits are
+	// not part of the block-store transaction, so they must be rolled back if a
+	// later stage fails.
+	previousLocationRoot, err := c.s.LocStorage.GetCurrentRoot(ctx)
+	if err != nil {
+		return fmt.Errorf("get previous location trie root: %w", err)
+	}
+
+	// Update the location trie and VM trie DB. updateTrieByBlock can fail after
+	// the location trie has advanced (for example, if the VM trie commit fails).
 	if _, _, err = c.updateTrieByBlock(ctx, b); err != nil {
+		if rollbackErr := c.s.LocStorage.SetStateRoot(ctx, previousLocationRoot); rollbackErr != nil {
+			return fmt.Errorf("update trie err: %w; restore location trie root: %v", err, rollbackErr)
+		}
+
 		return fmt.Errorf("update trie err: %w", err)
 	}
 
-	// Add to storage.
+	// The block store atomically writes the block, header, and newest-block pointer.
+	// If it fails, restore the active location root so a retry starts from the same
+	// parent state. The VM state root remains unreachable because curHeader is not
+	// advanced; content-addressed trie nodes committed during the failed attempt
+	// may remain as harmless orphans.
 	if err = c.s.BlockStorage.AddBlock(ctx, blockHash, blockByte, headerByte); err != nil {
+		if rollbackErr := c.s.LocStorage.SetStateRoot(ctx, previousLocationRoot); rollbackErr != nil {
+			return fmt.Errorf("failed to add block to storage: %w; restore location trie root: %v", err, rollbackErr)
+		}
+
 		return fmt.Errorf("failed to add block to storage: %w", err)
 	}
 
-	// Update the current header
+	// Advance the in-memory chain head only after all persistence stages succeed.
 	c.curHeader = b.Header
 
 	slog.InfoContext(ctx, "block is generated",
