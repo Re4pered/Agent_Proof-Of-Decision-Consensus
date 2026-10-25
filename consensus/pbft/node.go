@@ -496,20 +496,41 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 	// Validate and persist in order so state-transition validation sees each
 	// preceding block. Chain.AddBlock is not atomic; a storage failure can still
 	// leave a partially applied batch, which requires a future storage-layer fix.
-	for i := range crMsg.Proposals {
-		p := &crMsg.Proposals[i]
-		if err := n.iop.ValidateProposal(ctx, p); err != nil {
-			return fmt.Errorf("validate catch-up proposal at height=%d: %w", p.Block.Number, err)
-		}
-
-		if err := n.bc.AddBlock(ctx, p.Block); err != nil {
-			return fmt.Errorf("add block failed, height=%d, err: %w", p.Block.Number, err)
-		}
+	if err := applyCatchupProposals(ctx, crMsg.Proposals,
+		func(ctx context.Context, proposal *message.Proposal) error {
+			return n.iop.ValidateProposal(ctx, proposal)
+		},
+		func(ctx context.Context, proposal *message.Proposal) error {
+			return n.bc.AddBlock(ctx, proposal.Block)
+		},
+	); err != nil {
+		return err
 	}
 
 	// Set catchup states.
 	n.pbftMeta.catchupOverAndReset(basicstructs.ViewSeq{View: crMsg.NextView, Seq: crMsg.NextSeq})
 
+
+}
+
+// applyCatchupProposals validates and persists each proposal in order. It stops
+// immediately on validation or persistence failure and never processes later
+// proposals after an error. Previously persisted blocks are not rolled back.
+func applyCatchupProposals(
+	ctx context.Context,
+	proposals []message.Proposal,
+	validate func(context.Context, *message.Proposal) error,
+	persist func(context.Context, *message.Proposal) error,
+) error {
+	for i := range proposals {
+		proposal := &proposals[i]
+		if err := validate(ctx, proposal); err != nil {
+			return fmt.Errorf("validate catch-up proposal at height=%d: %w", proposal.Block.Number, err)
+		}
+		if err := persist(ctx, proposal); err != nil {
+			return fmt.Errorf("add block failed, height=%d, err: %w", proposal.Block.Number, err)
+		}
+	}
 	return nil
 }
 
