@@ -439,7 +439,7 @@ func TestCommitQuorumRevalidatesProposalBeforeApplyingBlock(t *testing.T) {
 	wantErr := errors.New("PoAD state root no longer matches local state")
 	op := &commitGateProposalOp{validationErr: wantErr}
 	meta := newConsensusMeta(
-		config.ConsensusNodeCfg{NodeNum: 4},
+		config.ConsensusNodeCfg{BlockchainCfg: config.BlockchainCfg{SystemCfg: config.SystemCfg{NodeNum: 4, ShardNum: 2}}},
 		config.LocalParams{NodeID: 1, ShardID: 1},
 	)
 	meta.stage = stageCommit
