@@ -125,3 +125,98 @@ func TestApplyCatchupProposalsStopsAfterPersistenceFailure(t *testing.T) {
 		t.Fatalf("persisted heights = %v, want only [1]", persisted)
 	}
 }
+
+func TestProcessCatchupResponseDoesNotResetAfterPoADValidationFailure(t *testing.T) {
+	parent, proposals := catchupFixture(t)
+	wantErr := errors.New("invalid PoAD decision proof")
+	resetCalls := 0
+	persisted := make([]uint64, 0, len(proposals))
+
+	err := processCatchupResponse(
+		context.Background(),
+		proposals,
+		parent,
+		func(_ context.Context, proposal *message.Proposal) error {
+			if proposal.Block.Number == 2 {
+				return wantErr
+			}
+			return nil
+		},
+		func(_ context.Context, proposal *message.Proposal) error {
+			persisted = append(persisted, proposal.Block.Number)
+			return nil
+		},
+		func() { resetCalls++ },
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("processCatchupResponse() error = %v, want %v", err, wantErr)
+	}
+	if resetCalls != 0 {
+		t.Fatalf("reset calls = %d, want 0 after validation failure", resetCalls)
+	}
+	if !reflect.DeepEqual(persisted, []uint64{1}) {
+		t.Fatalf("persisted heights = %v, want [1]", persisted)
+	}
+}
+
+func TestProcessCatchupResponseDoesNotResetAfterPersistenceFailure(t *testing.T) {
+	parent, proposals := catchupFixture(t)
+	wantErr := errors.New("storage unavailable")
+	resetCalls := 0
+	persisted := make([]uint64, 0, len(proposals))
+
+	err := processCatchupResponse(
+		context.Background(),
+		proposals,
+		parent,
+		func(context.Context, *message.Proposal) error { return nil },
+		func(_ context.Context, proposal *message.Proposal) error {
+			persisted = append(persisted, proposal.Block.Number)
+			return wantErr
+		},
+		func() { resetCalls++ },
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("processCatchupResponse() error = %v, want %v", err, wantErr)
+	}
+	if resetCalls != 0 {
+		t.Fatalf("reset calls = %d, want 0 after persistence failure", resetCalls)
+	}
+	if !reflect.DeepEqual(persisted, []uint64{1}) {
+		t.Fatalf("persisted heights = %v, want [1]", persisted)
+	}
+}
+
+func TestProcessCatchupResponseResetsOnlyAfterAllProposalsPersist(t *testing.T) {
+	parent, proposals := catchupFixture(t)
+	resetCalls := 0
+	validated := make([]uint64, 0, len(proposals))
+	persisted := make([]uint64, 0, len(proposals))
+
+	err := processCatchupResponse(
+		context.Background(),
+		proposals,
+		parent,
+		func(_ context.Context, proposal *message.Proposal) error {
+			validated = append(validated, proposal.Block.Number)
+			return nil
+		},
+		func(_ context.Context, proposal *message.Proposal) error {
+			persisted = append(persisted, proposal.Block.Number)
+			return nil
+		},
+		func() { resetCalls++ },
+	)
+	if err != nil {
+		t.Fatalf("processCatchupResponse() unexpected error: %v", err)
+	}
+	if resetCalls != 1 {
+		t.Fatalf("reset calls = %d, want 1 after successful catch-up", resetCalls)
+	}
+	if !reflect.DeepEqual(validated, []uint64{1, 2}) {
+		t.Fatalf("validated heights = %v, want [1 2]", validated)
+	}
+	if !reflect.DeepEqual(persisted, []uint64{1, 2}) {
+		t.Fatalf("persisted heights = %v, want [1 2]", persisted)
+	}
+}
