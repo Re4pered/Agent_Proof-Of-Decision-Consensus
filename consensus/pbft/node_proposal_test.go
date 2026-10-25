@@ -240,56 +240,95 @@ func (op *replicaProposalOp) ValidateProposal(_ context.Context, proposal *messa
 	return nil
 }
 
-func buildSignedPoADProposalForPBFTTest(t *testing.T) (*block.Block, *poad.IdentityRegistry, poad.TraceIntentLink) {
+func buildSignedPoADProposalForPBFTTest(
+	t *testing.T,
+) (*block.Block, *poad.IdentityRegistry, poad.TraceIntentLink) {
 	t.Helper()
+
 	tx := transaction.Transaction{
-		Sender: account.Address{1}, Recipient: account.Address{2},
-		Value: big.NewInt(1), PriorityFee: big.NewInt(0), GasLimit: 21000,
+		Sender:      account.Address{1},
+		Recipient:   account.Address{2},
+		Value:       big.NewInt(1),
+		PriorityFee: big.NewInt(0),
+		GasLimit:    21000,
 	}
 	txHashBytes, err := tx.Hash()
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	stateRoot := []byte{1, 2, 3}
 	txHash := hex.EncodeToString(txHashBytes)
 	stateRootHex := hex.EncodeToString(stateRoot)
 	registry := poad.NewIdentityRegistry()
 	decisions := make([]poad.SignedDecision, 0, 2)
+
 	for i := 1; i <= 2; i++ {
 		agentID := fmt.Sprintf("agent-%d", i)
 		publicKey, privateKey, err := poad.GenerateAgentKeyPair()
-		if err != nil { t.Fatal(err) }
-		if err := registry.Register(agentID, publicKey); err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := registry.Register(agentID, publicKey); err != nil {
+			t.Fatal(err)
+		}
+
 		decision, err := poad.Evaluate(poad.VerificationInput{
-			AgentID: agentID, TransactionHash: txHash, StateRoot: stateRootHex,
-			Transaction: poad.Pass, State: poad.Pass, Intent: poad.Pass, Evidence: poad.NotRequired,
+			AgentID:         agentID,
+			TransactionHash: txHash,
+			StateRoot:       stateRootHex,
+			Transaction:     poad.Pass,
+			State:           poad.Pass,
+			Intent:          poad.Pass,
+			Evidence:        poad.NotRequired,
 		})
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		signed, err := poad.SignDecision(decision, privateKey)
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		decisions = append(decisions, signed)
 	}
-	finalization, err := poad.PrepareBlockFinalization(registry, decisions, txHash, poad.DefaultPolicyVersion, 2, stateRootHex)
-	if err != nil { t.Fatal(err) }
+
+	finalization, err := poad.PrepareBlockFinalization(
+		registry, decisions, txHash, poad.DefaultPolicyVersion, 2, stateRootHex,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	proposalBlock := block.NewBlock(
 		block.Header{Type: block.TxBlockType, StateRoot: stateRoot},
-		block.Body{TxList: []transaction.Transaction{tx}}, block.MigrationOpt{},
+		block.Body{TxList: []transaction.Transaction{tx}},
+		block.MigrationOpt{},
 	)
-	if err := poad.AttachBlockPoADMetadata(proposalBlock, registry, decisions, finalization); err != nil { t.Fatal(err) }
-	txHashHex := hex.EncodeToString(txHashBytes)
+	if err := poad.AttachBlockPoADMetadata(proposalBlock, registry, decisions, finalization); err != nil {
+		t.Fatal(err)
+	}
+
 	intent := poad.TraceIntentLink{
-		Action: "pay", AgentID: "agent-1", Target: "agent-2", Amount: 1,
-		RequestID: "pbft-intent-test", ParamsHash: "v1", TxHashes: []string{txHashHex},
-		ExpectedSender: "0x" + hex.EncodeToString(tx.Sender[:]),
+		Action:           "pay",
+		AgentID:          "agent-1",
+		Target:           "agent-2",
+		Amount:           1,
+		RequestID:        "pbft-intent-test",
+		ParamsHash:       "v1",
+		TxHashes:         []string{txHash},
+		ExpectedSender:   "0x" + hex.EncodeToString(tx.Sender[:]),
 		ExpectedRecipient: "0x" + hex.EncodeToString(tx.Recipient[:]),
 	}
+
 	return proposalBlock, registry, intent
 }
 
 func TestThreeReplicasUseRealPoADSignatureValidation(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		tamper bool
+		name          string
+		tamper        bool
 		mismatchIntent bool
-		wantAccept bool
+		wantAccept    bool
 	}{
 		{name: "valid signed decisions and intent accepted", wantAccept: true},
 		{name: "tampered agent signature rejected", tamper: true, wantAccept: false},
@@ -299,10 +338,14 @@ func TestThreeReplicasUseRealPoADSignatureValidation(t *testing.T) {
 			proposalBlock, registry, intent := buildSignedPoADProposalForPBFTTest(t)
 			if tc.tamper {
 				var envelope poad.BlockPoADEnvelope
-				if err := json.Unmarshal(proposalBlock.PoADData, &envelope); err != nil { t.Fatal(err) }
+				if err := json.Unmarshal(proposalBlock.PoADData, &envelope); err != nil {
+					t.Fatal(err)
+				}
 				envelope.Decisions[0].Signature[0] ^= 0xff
 				tampered, err := json.Marshal(envelope)
-				if err != nil { t.Fatal(err) }
+				if err != nil {
+					t.Fatal(err)
+				}
 				root := sha256.Sum256(tampered)
 				proposalBlock.PoADData = tampered
 				proposalBlock.PoADRoot = root[:]
@@ -310,28 +353,57 @@ func TestThreeReplicasUseRealPoADSignatureValidation(t *testing.T) {
 			if tc.mismatchIntent {
 				intent.Amount = 2
 			}
+
 			proposal := &message.Proposal{Block: proposalBlock}
 			digest, err := proposal.Hash()
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			for nodeID := int64(0); nodeID < 3; nodeID++ {
 				node := senderValidationNode()
 				node.pbftMeta.lp.NodeID = nodeID
-				validator, err := poad.NewBlockMetadataValidatorWithIntentLinks(registry, []poad.TraceIntentLink{intent})
-				if err != nil { t.Fatal(err) }
+
+				validator, err := poad.NewBlockMetadataValidatorWithIntentLinks(
+					registry, []poad.TraceIntentLink{intent},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
 				op := &replicaProposalOp{validator: validator.ValidatePoADBlock}
 				node.iop = op
+
 				ppMsg := message.PreprepareMsg{
-					P: *proposal, Digest: digest, ShardID: 1, NodeID: 0, View: 0, Seq: 0,
+					P:       *proposal,
+					Digest:  digest,
+					ShardID: 1,
+					NodeID:  0,
+					View:    0,
+					Seq:     0,
 				}
 				var payload bytes.Buffer
-				if err := gob.NewEncoder(&payload).Encode(ppMsg); err != nil { t.Fatal(err) }
-				err := node.handlePreprepare(context.Background(), payload.Bytes())
-				if tc.wantAccept && err != nil { t.Errorf("replica %d rejected valid signed proposal: %v", nodeID, err) }
-				if !tc.wantAccept && err == nil { t.Errorf("replica %d accepted tampered signature", nodeID) }
+				if err := gob.NewEncoder(&payload).Encode(ppMsg); err != nil {
+					t.Fatal(err)
+				}
+
+				err = node.handlePreprepare(context.Background(), payload.Bytes())
+				if tc.wantAccept && err != nil {
+					t.Errorf("replica %d rejected valid signed proposal: %v", nodeID, err)
+				}
+				if !tc.wantAccept && err == nil {
+					t.Errorf("replica %d accepted invalid PoAD proposal", nodeID)
+				}
+
 				pooled := node.pbftMeta.msgPool.ReadPreprepareMsg(basicstructs.ViewSeq{})
-				if tc.wantAccept && len(pooled) != 1 { t.Errorf("replica %d pooled %d proposals, want 1", nodeID, len(pooled)) }
-				if !tc.wantAccept && len(pooled) != 0 { t.Errorf("replica %d pooled invalid proposal", nodeID) }
-				if op.validateCalls != 1 { t.Errorf("replica %d validation calls = %d, want 1", nodeID, op.validateCalls) }
+				if tc.wantAccept && len(pooled) != 1 {
+					t.Errorf("replica %d pooled %d proposals, want 1", nodeID, len(pooled))
+				}
+				if !tc.wantAccept && len(pooled) != 0 {
+					t.Errorf("replica %d pooled invalid proposal", nodeID)
+				}
+				if op.validateCalls != 1 {
+					t.Errorf("replica %d validation calls = %d, want 1", nodeID, op.validateCalls)
+				}
 			}
 		})
 	}
