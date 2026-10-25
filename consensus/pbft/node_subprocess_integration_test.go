@@ -19,6 +19,12 @@ import (
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/nodetopo"
 )
 
+type pbftSubprocessChild struct {
+	cmd    *exec.Cmd
+	lines  chan string
+	output *strings.Builder
+}
+
 // TestPBFTPreprepareBroadcastAcrossProcesses launches three independent copies
 // of the Go test binary. Each child hosts its own production RPCConn gRPC server
 // and dispatches the received Preprepare through Node.handleMessage.
@@ -43,12 +49,7 @@ func TestPBFTPreprepareBroadcastAcrossProcesses(t *testing.T) {
 	}
 	addressList := strings.Join(addresses, ",")
 
-	type child struct {
-		cmd    *exec.Cmd
-		lines  chan string
-		output *strings.Builder
-	}
-	children := make([]child, replicaCount)
+	children := make([]pbftSubprocessChild, replicaCount)
 	defer func() {
 		for i := range children {
 			if children[i].cmd != nil && children[i].cmd.Process != nil {
@@ -74,7 +75,7 @@ func TestPBFTPreprepareBroadcastAcrossProcesses(t *testing.T) {
 			t.Fatalf("create stdout pipe for replica %d: %v", nodeID, pipeErr)
 		}
 		var output strings.Builder
-		children[nodeID] = child{cmd: cmd, lines: make(chan string, 16), output: &output}
+		children[nodeID] = pbftSubprocessChild{cmd: cmd, lines: make(chan string, 16), output: &output}
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("start replica process %d: %v", nodeID, err)
 		}
@@ -184,11 +185,7 @@ func TestPBFTSubprocessReplicaHelper(t *testing.T) {
 	t.Fatalf("replica %d timed out waiting for preprepare", nodeID)
 }
 
-func waitForChildLine(t *testing.T, process *struct {
-	cmd    *exec.Cmd
-	lines  chan string
-	output *strings.Builder
-}, marker string, timeout time.Duration) string {
+func waitForChildLine(t *testing.T, process *pbftSubprocessChild, marker string, timeout time.Duration) string {
 	t.Helper()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
