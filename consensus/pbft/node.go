@@ -510,7 +510,7 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 	// Set catchup states.
 	n.pbftMeta.catchupOverAndReset(basicstructs.ViewSeq{View: crMsg.NextView, Seq: crMsg.NextSeq})
 
-
+	return nil
 }
 
 // applyCatchupProposals validates and persists each proposal in order. It stops
