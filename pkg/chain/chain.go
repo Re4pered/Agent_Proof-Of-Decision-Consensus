@@ -167,7 +167,7 @@ func (c *Chain) AddBlock(ctx context.Context, b *block.Block) error {
 	// the location trie has advanced (for example, if the VM trie commit fails).
 	if _, _, err = c.updateTrieByBlock(ctx, b); err != nil {
 		if rollbackErr := c.s.LocStorage.SetStateRoot(ctx, previousLocationRoot); rollbackErr != nil {
-			return fmt.Errorf("update trie err: %w; restore location trie root: %v", err, rollbackErr)
+			return fmt.Errorf("update trie err: %w; restore location trie root: %w", err, rollbackErr)
 		}
 
 		return fmt.Errorf("update trie err: %w", err)
@@ -180,7 +180,7 @@ func (c *Chain) AddBlock(ctx context.Context, b *block.Block) error {
 	// may remain as harmless orphans.
 	if err = c.s.BlockStorage.AddBlock(ctx, blockHash, blockByte, headerByte); err != nil {
 		if rollbackErr := c.s.LocStorage.SetStateRoot(ctx, previousLocationRoot); rollbackErr != nil {
-			return fmt.Errorf("failed to add block to storage: %w; restore location trie root: %v", err, rollbackErr)
+			return fmt.Errorf("failed to add block to storage: %w; restore location trie root: %w", err, rollbackErr)
 		}
 
 		return fmt.Errorf("failed to add block to storage: %w", err)
