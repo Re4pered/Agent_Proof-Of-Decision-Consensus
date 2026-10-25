@@ -101,6 +101,7 @@ func TestPBFTPreprepareBroadcastAcrossProcesses(t *testing.T) {
 		networkAddresses[nodetopo.NodeInfo{ShardID: shardID, NodeID: int64(nodeID)}] = address
 	}
 	leader := senderValidationNode()
+	leader.pbftMeta.lp.ShardID = shardID
 	leader.pbftMeta.lp.NodeID = 0
 	leader.conn = network.NewConnHandler(clientconnrpc.NewRPCConn(
 		nodetopo.NodeInfo{ShardID: shardID, NodeID: 0},
@@ -165,6 +166,7 @@ func TestPBFTSubprocessReplicaHelper(t *testing.T) {
 	fmt.Println("POAD_READY")
 
 	node := senderValidationNode()
+	node.pbftMeta.lp.ShardID = shardID
 	node.pbftMeta.lp.NodeID = int64(nodeID)
 	node.pbftMsgHandler = make(map[string]messageHandleFunc)
 	node.iop = &acceptingProposalOp{}
