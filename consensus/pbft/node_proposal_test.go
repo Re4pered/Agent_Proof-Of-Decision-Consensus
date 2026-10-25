@@ -240,7 +240,7 @@ func (op *replicaProposalOp) ValidateProposal(_ context.Context, proposal *messa
 	return nil
 }
 
-func buildSignedPoADProposalForPBFTTest(t *testing.T) (*block.Block, *poad.BlockMetadataValidator) {
+func buildSignedPoADProposalForPBFTTest(t *testing.T) (*block.Block, *poad.IdentityRegistry, poad.TraceIntentLink) {
 	t.Helper()
 	tx := transaction.Transaction{
 		Sender: account.Address{1}, Recipient: account.Address{2},
@@ -274,22 +274,29 @@ func buildSignedPoADProposalForPBFTTest(t *testing.T) (*block.Block, *poad.Block
 		block.Body{TxList: []transaction.Transaction{tx}}, block.MigrationOpt{},
 	)
 	if err := poad.AttachBlockPoADMetadata(proposalBlock, registry, decisions, finalization); err != nil { t.Fatal(err) }
-	validator, err := poad.NewBlockMetadataValidator(registry)
-	if err != nil { t.Fatal(err) }
-	return proposalBlock, validator
+	txHashHex := hex.EncodeToString(txHashBytes)
+	intent := poad.TraceIntentLink{
+		Action: "pay", AgentID: "agent-1", Target: "agent-2", Amount: 1,
+		RequestID: "pbft-intent-test", ParamsHash: "v1", TxHashes: []string{txHashHex},
+		ExpectedSender: "0x" + hex.EncodeToString(tx.Sender[:]),
+		ExpectedRecipient: "0x" + hex.EncodeToString(tx.Recipient[:]),
+	}
+	return proposalBlock, registry, intent
 }
 
 func TestThreeReplicasUseRealPoADSignatureValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		tamper bool
+		mismatchIntent bool
 		wantAccept bool
 	}{
-		{name: "valid signed decisions accepted", wantAccept: true},
+		{name: "valid signed decisions and intent accepted", wantAccept: true},
 		{name: "tampered agent signature rejected", tamper: true, wantAccept: false},
+		{name: "intent amount mismatch rejected", mismatchIntent: true, wantAccept: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			proposalBlock, validator := buildSignedPoADProposalForPBFTTest(t)
+			proposalBlock, registry, intent := buildSignedPoADProposalForPBFTTest(t)
 			if tc.tamper {
 				var envelope poad.BlockPoADEnvelope
 				if err := json.Unmarshal(proposalBlock.PoADData, &envelope); err != nil { t.Fatal(err) }
@@ -300,12 +307,17 @@ func TestThreeReplicasUseRealPoADSignatureValidation(t *testing.T) {
 				proposalBlock.PoADData = tampered
 				proposalBlock.PoADRoot = root[:]
 			}
+			if tc.mismatchIntent {
+				intent.Amount = 2
+			}
 			proposal := &message.Proposal{Block: proposalBlock}
 			digest, err := proposal.Hash()
 			if err != nil { t.Fatal(err) }
 			for nodeID := int64(0); nodeID < 3; nodeID++ {
 				node := senderValidationNode()
 				node.pbftMeta.lp.NodeID = nodeID
+				validator, err := poad.NewBlockMetadataValidatorWithIntentLinks(registry, []poad.TraceIntentLink{intent})
+				if err != nil { t.Fatal(err) }
 				op := &replicaProposalOp{validator: validator.ValidatePoADBlock}
 				node.iop = op
 				ppMsg := message.PreprepareMsg{
