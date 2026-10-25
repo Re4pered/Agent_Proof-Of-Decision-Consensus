@@ -269,9 +269,16 @@ func TestPBFTSubprocessReplicaHelper(t *testing.T) {
 	for time.Now().Before(deadline) {
 		for _, wrapped := range conn.DrainMsgBuffer() {
 			if err := node.handleMessage(context.Background(), wrapped); err != nil {
+				if os.Getenv("POAD_PBFT_REJECT_PROPOSAL") == "1" {
+					if got := node.pbftMeta.msgPool.ReadPreprepareMsg(basicstructs.ViewSeq{}); len(got) != 0 {
+						t.Fatalf("replica %d pooled rejected proposal: %d messages", nodeID, len(got))
+					}
+					fmt.Printf("POAD_RESULT_REJECTED node=%d\\n", nodeID)
+					return
+				}
 				t.Fatalf("replica %d rejected received proposal: %v", nodeID, err)
 			}
-			fmt.Printf("POAD_RESULT_ACCEPTED node=%d type=%s\n", nodeID, wrapped.GetMsgType())
+			fmt.Printf("POAD_RESULT_ACCEPTED node=%d type=%s\\n", nodeID, wrapped.GetMsgType())
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
