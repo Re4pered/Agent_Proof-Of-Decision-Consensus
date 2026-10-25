@@ -103,8 +103,11 @@ func TestPBFTPreprepareBroadcastAcrossProcesses(t *testing.T) {
 	leader := senderValidationNode()
 	leader.pbftMeta.lp.ShardID = shardID
 	leader.pbftMeta.lp.NodeID = 0
+	// This test driver is not a replica. Give its transport a distinct identity
+	// so a broadcast to replica 0 goes through gRPC instead of being short-circuited
+	// into the driver's own local message buffer.
 	leader.conn = network.NewConnHandler(clientconnrpc.NewRPCConn(
-		nodetopo.NodeInfo{ShardID: shardID, NodeID: 0},
+		nodetopo.NodeInfo{ShardID: shardID, NodeID: -1},
 		networkAddresses,
 	))
 	proposal := &message.Proposal{
