@@ -61,3 +61,65 @@ func TestValidateCatchupChainStructureRejectsNilBlock(t *testing.T) {
 		t.Fatal("expected catch-up batch with a nil block to be rejected")
 	}
 }
+
+
+func TestApplyCatchupProposalsRejectsInvalidPoADBeforePersistingThatBlock(t *testing.T) {
+	_, proposals := catchupFixture(t)
+	wantErr := errors.New("invalid PoAD decision proof")
+	validated := make([]int64, 0, len(proposals))
+	persisted := make([]int64, 0, len(proposals))
+
+	err := applyCatchupProposals(
+		context.Background(),
+		proposals,
+		func(_ context.Context, proposal *message.Proposal) error {
+			validated = append(validated, proposal.Block.Number)
+			if proposal.Block.Number == 2 {
+				return wantErr
+			}
+			return nil
+		},
+		func(_ context.Context, proposal *message.Proposal) error {
+			persisted = append(persisted, proposal.Block.Number)
+			return nil
+		},
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("applyCatchupProposals() error = %v, want %v", err, wantErr)
+	}
+	if !reflect.DeepEqual(validated, []int64{1, 2}) {
+		t.Fatalf("validated heights = %v, want [1 2]", validated)
+	}
+	if !reflect.DeepEqual(persisted, []int64{1}) {
+		t.Fatalf("persisted heights = %v, want only [1]", persisted)
+	}
+}
+
+func TestApplyCatchupProposalsStopsAfterPersistenceFailure(t *testing.T) {
+	_, proposals := catchupFixture(t)
+	wantErr := errors.New("storage unavailable")
+	validated := make([]int64, 0, len(proposals))
+	persisted := make([]int64, 0, len(proposals))
+
+	err := applyCatchupProposals(
+		context.Background(),
+		proposals,
+		func(_ context.Context, proposal *message.Proposal) error {
+			validated = append(validated, proposal.Block.Number)
+			return nil
+		},
+		func(_ context.Context, proposal *message.Proposal) error {
+			persisted = append(persisted, proposal.Block.Number)
+			return wantErr
+		},
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("applyCatchupProposals() error = %v, want %v", err, wantErr)
+	}
+	if !reflect.DeepEqual(validated, []int64{1}) {
+		t.Fatalf("validated heights = %v, want only [1]", validated)
+	}
+	if !reflect.DeepEqual(persisted, []int64{1}) {
+		t.Fatalf("persisted heights = %v, want only [1]", persisted)
+	}
+}
