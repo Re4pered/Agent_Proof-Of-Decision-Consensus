@@ -3,7 +3,6 @@ package pbft
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -154,7 +153,6 @@ func TestPBFTPreprepareBroadcastOverGRPC(t *testing.T) {
 				}
 			}
 
-			_ = fmt.Sprintf("replicas=%d", replicaCount) // keep replica count explicit in test diagnostics.
 		})
 	}
 }
