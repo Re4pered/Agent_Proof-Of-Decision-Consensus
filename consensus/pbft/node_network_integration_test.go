@@ -65,6 +65,10 @@ func TestPBFTPreprepareBroadcastAcrossIndependentNodes(t *testing.T) {
 			for nodeID := int64(0); nodeID < 3; nodeID++ {
 				node := senderValidationNode()
 				node.pbftMeta.lp.NodeID = nodeID
+				// senderValidationNode builds a lightweight test node rather than
+				// going through NewPBFTNode, so initialize the handler map that
+				// NewPBFTNode normally allocates.
+				node.pbftMsgHandler = make(map[string]messageHandleFunc)
 				ops[nodeID] = &replicaProposalOp{validationErr: tc.validation}
 				node.iop = ops[nodeID]
 				node.conn = network.NewConnHandler(&inMemoryPBFTConn{
