@@ -526,6 +526,7 @@ func processCatchupResponse(
 
 	// Never signal completion or advance the view/sequence after partial failure.
 	reset()
+
 	return nil
 }
 
