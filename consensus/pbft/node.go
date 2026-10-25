@@ -486,30 +486,46 @@ func (n *Node) handleCatchupResp(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("catchup resp message not started")
 	}
 
-	// Preflight the entire response's chain structure before changing local state.
-	// Full block/state validation must then remain sequential: each block is checked
-	// against the parent state produced by the preceding AddBlock.
-	if err := validateCatchupChainStructure(crMsg.Proposals, n.bc.GetCurHeader()); err != nil {
-		return fmt.Errorf("preflight catch-up chain: %w", err)
-	}
-
-	// Validate and persist in order so state-transition validation sees each
-	// preceding block. Chain.AddBlock is not atomic; a storage failure can still
-	// leave a partially applied batch, which requires a future storage-layer fix.
-	if err := applyCatchupProposals(ctx, crMsg.Proposals,
+	return processCatchupResponse(
+		ctx,
+		crMsg.Proposals,
+		n.bc.GetCurHeader(),
 		func(ctx context.Context, proposal *message.Proposal) error {
 			return n.iop.ValidateProposal(ctx, proposal)
 		},
 		func(ctx context.Context, proposal *message.Proposal) error {
 			return n.bc.AddBlock(ctx, proposal.Block)
 		},
-	); err != nil {
+		func() {
+			n.pbftMeta.catchupOverAndReset(basicstructs.ViewSeq{View: crMsg.NextView, Seq: crMsg.NextSeq})
+		},
+	)
+}
+
+// processCatchupResponse preflights a catch-up batch, then validates and persists
+// proposals sequentially. Consensus state is reset only after every proposal has
+// been successfully applied. Chain.AddBlock is not atomic, so a storage failure
+// can still leave a partially applied batch; this helper does not claim rollback.
+func processCatchupResponse(
+	ctx context.Context,
+	proposals []message.Proposal,
+	currentHeader block.Header,
+	validate func(context.Context, *message.Proposal) error,
+	persist func(context.Context, *message.Proposal) error,
+	reset func(),
+) error {
+	// Check the full chain shape before any writes, then perform stateful validation
+	// in order so each proposal sees the state produced by its predecessor.
+	if err := validateCatchupChainStructure(proposals, currentHeader); err != nil {
+		return fmt.Errorf("preflight catch-up chain: %w", err)
+	}
+
+	if err := applyCatchupProposals(ctx, proposals, validate, persist); err != nil {
 		return err
 	}
 
-	// Set catchup states.
-	n.pbftMeta.catchupOverAndReset(basicstructs.ViewSeq{View: crMsg.NextView, Seq: crMsg.NextSeq})
-
+	// Never signal completion or advance the view/sequence after partial failure.
+	reset()
 	return nil
 }
 
