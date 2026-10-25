@@ -527,10 +527,12 @@ func applyCatchupProposals(
 		if err := validate(ctx, proposal); err != nil {
 			return fmt.Errorf("validate catch-up proposal at height=%d: %w", proposal.Block.Number, err)
 		}
+
 		if err := persist(ctx, proposal); err != nil {
 			return fmt.Errorf("add block failed, height=%d, err: %w", proposal.Block.Number, err)
 		}
 	}
+
 	return nil
 }
 
