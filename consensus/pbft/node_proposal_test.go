@@ -412,3 +412,65 @@ func TestThreeReplicasUseRealPoADSignatureValidation(t *testing.T) {
 func (*replicaProposalOp) ProposalCommitAndDeliver(context.Context, bool, *message.Proposal) error {
 	return nil
 }
+
+
+type commitGateProposalOp struct {
+	validationErr error
+	validateCalls int
+	commitCalls   int
+}
+
+func (*commitGateProposalOp) BuildProposal(context.Context) (*message.Proposal, error) {
+	return nil, errors.New("not used in commit gate test")
+}
+
+func (op *commitGateProposalOp) ValidateProposal(context.Context, *message.Proposal) error {
+	op.validateCalls++
+	return op.validationErr
+}
+
+func (op *commitGateProposalOp) ProposalCommitAndDeliver(context.Context, bool, *message.Proposal) error {
+	op.commitCalls++
+	return nil
+}
+
+func TestCommitQuorumRevalidatesProposalBeforeApplyingBlock(t *testing.T) {
+	wantErr := errors.New("PoAD state root no longer matches local state")
+	op := &commitGateProposalOp{validationErr: wantErr}
+	meta := newConsensusMeta(
+		config.ConsensusNodeCfg{NodeNum: 4},
+		config.LocalParams{NodeID: 1, ShardID: 1},
+	)
+	meta.stage = stageCommit
+	proposal := &message.Proposal{
+		Block: block.NewBlock(block.Header{Number: 1}, block.Body{}, block.MigrationOpt{}),
+	}
+	digest, err := proposal.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta.curPreprepare = &message.PreprepareMsg{
+		P: *proposal, Digest: digest, View: 0, Seq: 0, ShardID: 1, NodeID: 0,
+	}
+	// Four-node PBFT has f=1 and requires 2f+1=3 commit votes.
+	meta.commitSet = map[nodetopo.NodeInfo]struct{}{
+		{ShardID: 1, NodeID: 0}: {},
+		{ShardID: 1, NodeID: 1}: {},
+		{ShardID: 1, NodeID: 2}: {},
+	}
+	node := &Node{iop: op, pbftMeta: meta}
+
+	err = node.step2NextStage(context.Background())
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("step2NextStage() error = %v, want %v", err, wantErr)
+	}
+	if op.validateCalls != 1 {
+		t.Fatalf("ValidateProposal calls = %d, want 1", op.validateCalls)
+	}
+	if op.commitCalls != 0 {
+		t.Fatalf("ProposalCommitAndDeliver calls = %d, want 0 after failed revalidation", op.commitCalls)
+	}
+	if node.pbftMeta.stage != stageCommit {
+		t.Fatalf("PBFT stage = %d, want stageCommit (%d) after failed validation", node.pbftMeta.stage, stageCommit)
+	}
+}
