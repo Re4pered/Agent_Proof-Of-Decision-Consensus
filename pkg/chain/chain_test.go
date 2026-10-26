@@ -2,6 +2,7 @@ package chain
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"os"
 	"path"
@@ -14,6 +15,7 @@ import (
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/account"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
+	blockstorage "github.com/HuangLab-SYSU/block-emulator-x/pkg/storage/block"
 )
 
 const (
@@ -47,7 +49,24 @@ func TestChain(t *testing.T) {
 
 	b1 := generateBlockButNotAdd(t, bc)
 
-	// Add this block to the chain.
+	// A block must not be accepted when it declares a state root that does not
+	// match deterministic execution against the current parent state.
+	badStateRoot := *b1
+	badStateRoot.StateRoot = append([]byte(nil), b1.StateRoot...)
+	badStateRoot.StateRoot[0] ^= 0xff
+	require.ErrorContains(t, bc.ValidateBlock(context.Background(), &badStateRoot), "state root mismatch")
+
+	// The location trie commitment must also match the deterministic preview.
+	badLocationRoot := *b1
+	badLocationRoot.LocationRoot = append([]byte(nil), b1.LocationRoot...)
+	if len(badLocationRoot.LocationRoot) == 0 {
+		badLocationRoot.LocationRoot = []byte{0xff}
+	} else {
+		badLocationRoot.LocationRoot[0] ^= 0xff
+	}
+	require.ErrorContains(t, bc.ValidateBlock(context.Background(), &badLocationRoot), "location root mismatch")
+
+	// Add the original valid block to the chain.
 	validateAndAddBlock(t, bc, b1)
 
 	// The test to generate and add a migration block
@@ -160,4 +179,51 @@ func fetchBlocksCheck(t *testing.T, bc *Chain) {
 	blocks, err = bc.GetBlocksAfterHeight(ctx, 2)
 	require.NoError(t, err)
 	require.Len(t, blocks, 2)
+}
+
+
+// failOnceBlockStore injects a single block-persistence failure while preserving
+// the real store for subsequent retry attempts.
+type failOnceBlockStore struct {
+	blockstorage.Store
+	failNext bool
+}
+
+func (s *failOnceBlockStore) AddBlock(ctx context.Context, blockHash, encodedBlock, encodedBlockHeader []byte) error {
+	if s.failNext {
+		s.failNext = false
+		return errors.New("injected block-store failure")
+	}
+
+	return s.Store.AddBlock(ctx, blockHash, encodedBlock, encodedBlockHeader)
+}
+
+func TestAddBlockRestoresLocationRootAfterBlockStorageFailureAndAllowsRetry(t *testing.T) {
+	cfg := getTestConfig()
+	err := os.MkdirAll(cfg.BoltCfg.FilePathDir, os.ModePerm)
+	require.NoError(t, err)
+	t.Cleanup(clearChainStorage)
+
+	bc, err := NewChain(cfg, config.LocalParams{ShardID: 0})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, bc.Close()) })
+
+	proposal := generateBlockButNotAdd(t, bc)
+	parentHeader := bc.GetCurHeader()
+	parentLocationRoot, err := bc.s.LocStorage.GetCurrentRoot(context.Background())
+	require.NoError(t, err)
+
+	bc.s.BlockStorage = &failOnceBlockStore{Store: bc.s.BlockStorage, failNext: true}
+	err = bc.AddBlock(context.Background(), proposal)
+	require.ErrorContains(t, err, "injected block-store failure")
+	require.Equal(t, parentHeader, bc.GetCurHeader())
+
+	locationRootAfterFailure, err := bc.s.LocStorage.GetCurrentRoot(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, parentLocationRoot, locationRootAfterFailure,
+		"failed block persistence must restore the active location trie root")
+
+	// The same block must be retryable from the unchanged parent state.
+	require.NoError(t, bc.AddBlock(context.Background(), proposal))
+	require.Equal(t, proposal.Header, bc.GetCurHeader())
 }

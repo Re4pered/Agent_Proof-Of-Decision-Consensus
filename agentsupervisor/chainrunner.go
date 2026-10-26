@@ -2,6 +2,8 @@ package agentsupervisor
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -25,9 +28,10 @@ const defaultChainRunTimeout = 10 * time.Minute
 
 // RoundSpec describes one BlockEmulator-X execution of a produced plan.
 type RoundSpec struct {
-	Round    int
-	PlanPath string
-	TxCount  int
+	Round              int
+	PlanPath           string
+	IntentManifestPath string
+	TxCount            int
 }
 
 // ChainOutcome points at the artifacts a finished chain run left behind.
@@ -60,6 +64,11 @@ type ChainRunner struct {
 	// NodeExitGrace is how long nodes may take to exit after the supervisor
 	// finished before they get killed.
 	NodeExitGrace time.Duration
+	// PoADRegistryPath and PoADRegistrySHA256 configure the trusted Agent identity snapshot.
+	PoADRegistryPath   string
+	PoADRegistrySHA256 string
+	// PoADRequired rejects transaction blocks unless signed PoAD metadata and intent links validate.
+	PoADRequired bool
 }
 
 // BinDirName hosts the cluster binaries inside the module root. A bare
@@ -169,14 +178,53 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		return nil, err
 	}
 
+	if c.PoADRequired && (c.PoADRegistryPath == "" || c.PoADRegistrySHA256 == "" || spec.IntentManifestPath == "") {
+		return nil, fmt.Errorf("required PoAD needs registry path/digest and an AgentSupervisor intent manifest")
+	}
+
+	if (c.PoADRegistryPath == "") != (c.PoADRegistrySHA256 == "") {
+		return nil, fmt.Errorf("PoAD registry path and SHA-256 digest must be configured together")
+	}
+
+	nodeArgs := []string{"-config", cfgPath, "-ip_table", tablePath}
+	if c.PoADRegistryPath != "" {
+		nodeArgs = append(nodeArgs,
+			"-poad-registry", c.PoADRegistryPath,
+			"-poad-registry-sha256", c.PoADRegistrySHA256,
+		)
+
+		if spec.IntentManifestPath != "" {
+			manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+			digestPath := manifestPath + ".sha256"
+
+			digestRaw, readErr := os.ReadFile(digestPath)
+			if readErr != nil {
+				return nil, fmt.Errorf("read staged PoAD intent manifest digest: %w", readErr)
+			}
+
+			digestFields := strings.Fields(string(digestRaw))
+
+			if len(digestFields) == 0 {
+				return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
+			}
+
+			nodeArgs = append(nodeArgs,
+				"-poad-intent-manifest", manifestPath,
+				"-poad-intent-manifest-sha256", digestFields[0],
+			)
+		}
+
+		if c.PoADRequired {
+			nodeArgs = append(nodeArgs, "-poad-required")
+		}
+	}
+
 	for shard := int64(0); shard < shardNum; shard++ {
 		for node := int64(0); node < nodeNum; node++ {
-			p, err := procs.start(nodeBin, logDir, fmt.Sprintf("node_s%d_n%d", shard, node),
-				"-shard_id", strconv.FormatInt(shard, 10),
-				"-node_id", strconv.FormatInt(node, 10),
-				"-config", cfgPath,
-				"-ip_table", tablePath,
-			)
+			args := append([]string(nil), nodeArgs...)
+			args = append(args, "-shard_id", strconv.FormatInt(shard, 10), "-node_id", strconv.FormatInt(node, 10))
+
+			p, err := procs.start(nodeBin, logDir, fmt.Sprintf("node_s%d_n%d", shard, node), args...)
 			if err != nil {
 				return nil, err
 			}
@@ -241,6 +289,16 @@ func (c *ChainRunner) prepare(chainDir string, spec RoundSpec) (string, string, 
 	logDir := filepath.Join(chainDir, "logs")
 	resultDir := filepath.Join(chainDir, "results")
 
+	// Carry the exact AgentSupervisor payment-intent manifest into the same
+	// isolated chain run as its transaction plan. The sidecar digest detects
+	// accidental corruption; deployments must still provision trusted registry
+	// digests and authenticate the original trace/manifest source.
+	if spec.IntentManifestPath != "" {
+		if err := copyPoADPaymentManifest(spec.IntentManifestPath, chainDir); err != nil {
+			return "", "", "", err
+		}
+	}
+
 	// Point every mutable path at the chain directory and switch the
 	// supervisor to replaying the produced plan.
 	setYAMLPath(doc, []string{"system", "log", "log_dir"}, logDir)
@@ -284,6 +342,40 @@ func (c *ChainRunner) prepare(chainDir string, spec RoundSpec) (string, string, 
 	}
 
 	return cfgPath, tablePath, resultDir, nil
+}
+
+func copyPoADPaymentManifest(sourcePath, chainDir string) error {
+	raw, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return fmt.Errorf("read AgentSupervisor PoAD payment manifest: %w", err)
+	}
+
+	actual := sha256.Sum256(raw)
+	actualHex := hex.EncodeToString(actual[:])
+
+	sourceDigestPath := sourcePath + ".sha256"
+
+	digestRaw, err := os.ReadFile(sourceDigestPath)
+	if err != nil {
+		return fmt.Errorf("read AgentSupervisor PoAD manifest digest: %w", err)
+	}
+
+	fields := strings.Fields(string(digestRaw))
+	if len(fields) == 0 || !strings.EqualFold(fields[0], actualHex) {
+		return fmt.Errorf("AgentSupervisor PoAD payment manifest digest mismatch")
+	}
+
+	targetPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+	if err := os.WriteFile(targetPath, raw, 0o644); err != nil {
+		return fmt.Errorf("stage PoAD payment manifest for chain run: %w", err)
+	}
+
+	targetDigest := actualHex + "  " + PoADPaymentManifestFileName + "\n"
+	if err := os.WriteFile(filepath.Join(chainDir, PoADPaymentManifestDigestFileName), []byte(targetDigest), 0o644); err != nil {
+		return fmt.Errorf("write staged PoAD payment manifest digest: %w", err)
+	}
+
+	return nil
 }
 
 func (c *ChainRunner) loadBaseConfig() (map[string]any, error) {

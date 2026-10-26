@@ -20,6 +20,8 @@ type RoundResult struct {
 
 	OutputDir string `json:"output_dir"`
 	PlanPath  string `json:"plan_path"`
+	// IntentManifestPath points to the PoAD payment-intent manifest for this round.
+	IntentManifestPath string `json:"intent_manifest_path"`
 	// ChainResultDir points at the supervisor measurement CSVs of this round;
 	// empty when chain execution is disabled.
 	ChainResultDir string `json:"chain_result_dir,omitempty"`
@@ -110,15 +112,21 @@ func (r *Runner) Run(ctx context.Context) ([]RoundResult, error) {
 		}
 
 		rr := RoundResult{
-			Round:       round,
-			RecordCount: len(records),
-			TxCount:     len(result.Transactions),
-			OutputDir:   outDir,
-			PlanPath:    filepath.Join(outDir, PlanFileName),
+			Round:              round,
+			RecordCount:        len(records),
+			TxCount:            len(result.Transactions),
+			OutputDir:          outDir,
+			PlanPath:           filepath.Join(outDir, PlanFileName),
+			IntentManifestPath: filepath.Join(outDir, PoADPaymentManifestFileName),
 		}
 
 		if r.Chain != nil {
-			outcome, err := r.Chain.Run(ctx, RoundSpec{Round: round, PlanPath: rr.PlanPath, TxCount: rr.TxCount})
+			outcome, err := r.Chain.Run(ctx, RoundSpec{
+				Round:              round,
+				PlanPath:           rr.PlanPath,
+				IntentManifestPath: rr.IntentManifestPath,
+				TxCount:            rr.TxCount,
+			})
 			if err != nil {
 				return rounds, fmt.Errorf("round %d: %w", round, err)
 			}

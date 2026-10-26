@@ -155,17 +155,38 @@ func (c *Chain) AddBlock(ctx context.Context, b *block.Block) error {
 		return fmt.Errorf("encode block header err: %w", err)
 	}
 
-	// Update the location trie and vm trie db.
+	// Capture the active location root before applying this block. Trie commits are
+	// not part of the block-store transaction, so they must be rolled back if a
+	// later stage fails.
+	previousLocationRoot, err := c.s.LocStorage.GetCurrentRoot(ctx)
+	if err != nil {
+		return fmt.Errorf("get previous location trie root: %w", err)
+	}
+
+	// Update the location trie and VM trie DB. updateTrieByBlock can fail after
+	// the location trie has advanced (for example, if the VM trie commit fails).
 	if _, _, err = c.updateTrieByBlock(ctx, b); err != nil {
+		if rollbackErr := c.s.LocStorage.SetStateRoot(ctx, previousLocationRoot); rollbackErr != nil {
+			return fmt.Errorf("update trie err: %w; restore location trie root: %w", err, rollbackErr)
+		}
+
 		return fmt.Errorf("update trie err: %w", err)
 	}
 
-	// Add to storage.
+	// The block store atomically writes the block, header, and newest-block pointer.
+	// If it fails, restore the active location root so a retry starts from the same
+	// parent state. The VM state root remains unreachable because curHeader is not
+	// advanced; content-addressed trie nodes committed during the failed attempt
+	// may remain as harmless orphans.
 	if err = c.s.BlockStorage.AddBlock(ctx, blockHash, blockByte, headerByte); err != nil {
+		if rollbackErr := c.s.LocStorage.SetStateRoot(ctx, previousLocationRoot); rollbackErr != nil {
+			return fmt.Errorf("failed to add block to storage: %w; restore location trie root: %w", err, rollbackErr)
+		}
+
 		return fmt.Errorf("failed to add block to storage: %w", err)
 	}
 
-	// Update the current header
+	// Advance the in-memory chain head only after all persistence stages succeed.
 	c.curHeader = b.Header
 
 	slog.InfoContext(ctx, "block is generated",
@@ -200,7 +221,16 @@ func (c *Chain) GetAccountLocationsInTxs(
 }
 
 // ValidateBlock validates blocks according to the chain's config.
-func (c *Chain) ValidateBlock(_ context.Context, b *block.Block) error {
+func (c *Chain) ValidateBlock(ctx context.Context, b *block.Block) error {
+	if b == nil {
+		return fmt.Errorf("block is required")
+	}
+
+	// Serialize validation against AddBlock/GenerateBlock so the preview uses a
+	// consistent parent state and trie snapshot.
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
 	// Validate the transaction part.
 	tH, err := c.calcTxHeaderOpt(b.Body)
 	if err != nil {
@@ -223,6 +253,22 @@ func (c *Chain) ValidateBlock(_ context.Context, b *block.Block) error {
 
 	if !bytes.Equal(mH.MigratedAccountsRoot, b.MigratedAccountsRoot) {
 		return fmt.Errorf("migration root mismatch")
+	}
+
+	// Re-execute the block against the current parent state without committing
+	// the resulting trie. A PoAD envelope binding alone cannot prove that the
+	// declared state root is the deterministic result of this block.
+	stateRoot, locationRoot, err := c.previewStateRootByBlock(ctx, b)
+	if err != nil {
+		return fmt.Errorf("preview block state transition: %w", err)
+	}
+
+	if !bytes.Equal(stateRoot, b.StateRoot) {
+		return fmt.Errorf("state root mismatch")
+	}
+
+	if !bytes.Equal(locationRoot, b.LocationRoot) {
+		return fmt.Errorf("location root mismatch")
 	}
 
 	return nil

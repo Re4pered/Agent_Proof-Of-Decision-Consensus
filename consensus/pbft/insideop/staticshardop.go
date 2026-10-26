@@ -16,8 +16,11 @@ type StaticShardOp struct {
 	chain  *chain.Chain  // chain is the data-structure of blockchain.
 	txPool txpool.TxPool // txPool is the transactions pool.
 
-	tbo txblockop.TxBlockOp
-	cfg config.ConsensusNodeCfg
+	tbo           txblockop.TxBlockOp
+	cfg           config.ConsensusNodeCfg
+	poadValidator PoADBlockValidator
+	poadBuilder   PoADProposalBuilder
+	requirePoAD   bool
 }
 
 func NewStaticShardOp(
@@ -45,12 +48,31 @@ func (s *StaticShardOp) BuildProposal(ctx context.Context) (*message.Proposal, e
 		return nil, fmt.Errorf("build block proposal in relay mode failed: %w", err)
 	}
 
+	if err := buildPoADProposalMetadata(ctx, p.Block, s.poadBuilder, s.requirePoAD); err != nil {
+		return nil, err
+	}
+
 	return p, nil
+}
+
+// SetPoADProposalBuilder configures leader-side PoAD metadata generation.
+func (s *StaticShardOp) SetPoADProposalBuilder(builder PoADProposalBuilder) {
+	s.poadBuilder = builder
+}
+
+// SetPoADValidation configures optional PoAD verification. Call before starting PBFT.
+func (s *StaticShardOp) SetPoADValidation(validator PoADBlockValidator, required bool) {
+	s.poadValidator = validator
+	s.requirePoAD = required
 }
 
 func (s *StaticShardOp) ValidateProposal(ctx context.Context, proposal *message.Proposal) error {
 	if err := s.chain.ValidateBlock(ctx, proposal.Block); err != nil {
 		return fmt.Errorf("validate block failed: %w", err)
+	}
+
+	if err := validatePoADProposal(proposal.Block, s.poadValidator, s.requirePoAD); err != nil {
+		return err
 	}
 
 	return nil

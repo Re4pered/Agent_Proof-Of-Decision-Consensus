@@ -9,13 +9,17 @@ experiment:
   trace: ./traces/agent=100_txs=10000.jsonl
 chain:
   # When true, each round's transaction plan is automatically executed on a
-  # freshly launched BlockEmulator-X cluster (consensus nodes + supervisor):
-  # agentemu builds the binaries, derives a per-round config and ip table,
-  # replays the plan via tx_source=trace_source_JSONL, and waits for the cluster to
-  # stop by itself.
+  # freshly launched BlockEmulator-X cluster.
   enabled: true
-  run_timeout_seconds: 600    # hard bound for one whole chain run
-  node_exit_grace_seconds: 15 # grace for nodes to exit after the supervisor
+  run_timeout_seconds: 600
+  node_exit_grace_seconds: 15
+  # Optional trusted Agent public-identity snapshot and independently provisioned digest.
+  # Keep these empty for legacy/optional PoAD verification.
+  poad_registry_path: ""
+  poad_registry_sha256: ""
+  # WARNING: strict mode rejects legacy transaction blocks unless the block builder
+  # attaches valid PoAD decision evidence. Enable only after evidence production is integrated.
+  poad_required: false
 loop:
   # Caps the simulation loop; 1 means a single pass over the trace. Rounds
   # beyond the first require an AgentAPI feedback implementation.
