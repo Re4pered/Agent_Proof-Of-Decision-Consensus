@@ -39,6 +39,16 @@ echo "  agent registry    : exp/agentemu-results/agent_registry.json"
 echo "  chain measurements: exp/agentemu-results/round_001/chain/results/"
 echo "  round summary     : exp/agentemu-results/rounds_summary.json"
 
+# Thesis-oriented metrics: this step runs after every successful experiment,
+# even if agent balance CSVs are missing. It does not change raw experiment data.
+if command -v python3 >/dev/null 2>&1; then
+  python3 ./scripts/analyze_agentemu_results.py ./exp/agentemu-results
+elif command -v python >/dev/null 2>&1; then
+  python ./scripts/analyze_agentemu_results.py ./exp/agentemu-results
+else
+  echo "warn: Python not found; skip evaluation metrics generation" >&2
+fi
+
 # Post-experiment figures: plot agent balances from the latest round, build an
 # HTML gallery and open it in the default browser. A failed experiment aborts
 # earlier via set -e, so this only runs on success.
