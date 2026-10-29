@@ -45,6 +45,12 @@ echo   agent registry    : exp\agentemu-results\agent_registry.json
 echo   chain measurements: exp\agentemu-results\round_001\chain\results\
 echo   round summary     : exp\agentemu-results\rounds_summary.json
 
+rem Generate thesis-oriented metrics after every successful experiment.
+rem Do not fail the experiment if Python is unavailable; print a clear warning.
+set "METRICS_SCRIPT=scripts\analyze_agentemu_results.py"
+%PY% "%METRICS_SCRIPT%" "exp\agentemu-results"
+if errorlevel 1 echo warn: evaluation metrics generation failed 1>&2
+
 rem Post-experiment figures: plot agent balances from the latest round, build
 rem an HTML gallery and open it in the default browser. A failed experiment
 rem aborts earlier, so this only runs on success (parity with run_agentemu.sh).

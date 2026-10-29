@@ -778,3 +778,22 @@ HuangLab 近 7 年专注于区块链分片（Blockchain Sharding）理论与技�
 MIT。见 [LICENSE](LICENSE)。
 
 
+
+
+## 实验结束后自动生成论文评估指标
+
+使用 `run_agentemu.sh`（macOS/Linux）或 `run_agentemu.bat`（Windows）完成一次实验后，脚本会自动调用 `scripts/analyze_agentemu_results.py`，在 `exp/agentemu-results/` 下生成：
+
+- `evaluation_report.md`：可直接阅读的中文评估报告；
+- `evaluation_metrics.csv`：便于用 Excel 筛选、汇总和绘图；
+- `evaluation_metrics.json`：便于后续自动化分析。
+
+也可以在项目根目录手动重新生成报告（不需要重跑实验）：
+
+```bash
+python scripts/analyze_agentemu_results.py exp/agentemu-results
+```
+
+报告会汇总平均 TPS、平均提交延迟、同分片提交延迟、跨分片交易比例、计划交易记录数、Relay 明细哈希数、PoAD 严格启用状态、节点区块记录完整性，以及分片消息不匹配和 PrePrepare 失败日志出现次数。对于当前数据无法可靠计算的意图违规拦截率、决策证据拒绝率、有效交易接受率、Agent 决策验证延迟和跨节点区块一致性，会明确标记为“未测得/未验证”，不会用计划交易数或哈希覆盖比冒充成功率。
+
+注意：这些指标用于诊断实验结果。若出现分片消息错误或节点区块记录不完整，性能数据应先视为诊断参考，不应直接作为论文最终结论；严格 PoAD 状态也不等于已经验证其安全效果。

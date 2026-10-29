@@ -5,6 +5,10 @@ on:
     branches: [ main, master ]
     paths:
       - '**/*.go'
+      - 'scripts/**/*.py'
+      - 'run_agentemu.sh'
+      - 'run_agentemu.bat'
+      - 'README_zh.md'
   workflow_dispatch:
 
 jobs:
@@ -41,6 +45,11 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
             | sh -s -- -b /usr/local/bin v2.7.0
+
+      - name: Validate experiment metrics script and shell launcher
+        run: |
+          python3 -m py_compile scripts/analyze_agentemu_results.py
+          bash -n run_agentemu.sh
 
       - name: Download modules
         run: go mod download
