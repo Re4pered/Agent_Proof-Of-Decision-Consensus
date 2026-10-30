@@ -37,6 +37,10 @@ type Config struct {
 		// PoADRequired enables fail-closed PoAD proposal validation. The block builder
 		// must already attach valid decision evidence before this can be enabled.
 		PoADRequired bool `yaml:"poad_required"`
+		// PoADDecisionServiceConfigPath is a local-only file containing Agent private keys.
+		PoADDecisionServiceConfigPath string `yaml:"poad_decision_service_config_path"`
+		PoADRequiredVotes int `yaml:"poad_required_votes"`
+		PoADDecisionTimeoutSeconds int `yaml:"poad_decision_timeout_seconds"`
 	} `yaml:"chain"`
 	Loop struct {
 		// MaxRounds caps the simulation loop even if an AgentAPI keeps producing
@@ -84,8 +88,14 @@ func LoadConfig(path string) (Config, error) {
 		)
 	}
 
-	if cfg.Chain.PoADRequired && (!cfg.Chain.Enabled || cfg.Chain.PoADRegistryPath == "") {
-		return Config{}, fmt.Errorf("chain.poad_required needs chain.enabled=true and both PoAD registry settings")
+	if cfg.Chain.PoADRequired && (!cfg.Chain.Enabled || cfg.Chain.PoADRegistryPath == "" || cfg.Chain.PoADDecisionServiceConfigPath == "") {
+		return Config{}, fmt.Errorf("chain.poad_required needs chain.enabled=true, both PoAD registry settings, and chain.poad_decision_service_config_path")
+	}
+	if cfg.Chain.PoADRequiredVotes <= 0 {
+		cfg.Chain.PoADRequiredVotes = 2
+	}
+	if cfg.Chain.PoADDecisionTimeoutSeconds <= 0 {
+		cfg.Chain.PoADDecisionTimeoutSeconds = 15
 	}
 
 	if cfg.Chain.RunTimeoutSeconds <= 0 {
