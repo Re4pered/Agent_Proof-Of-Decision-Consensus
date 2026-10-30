@@ -70,6 +70,11 @@ type ChainRunner struct {
 	PoADRegistrySHA256 string
 	// PoADRequired rejects transaction blocks unless signed PoAD metadata and intent links validate.
 	PoADRequired bool
+	// PoADDecisionServiceConfigPath points to a local file containing Agent private keys.
+	// It is used only for local experiments and must never be committed.
+	PoADDecisionServiceConfigPath string
+	PoADRequiredVotes int
+	PoADDecisionTimeout time.Duration
 }
 
 // BinDirName hosts the cluster binaries inside the module root. A bare
