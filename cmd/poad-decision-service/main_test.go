@@ -138,3 +138,35 @@ func TestLoadServiceConfigRejectsInvalidKey(t *testing.T) {
 		t.Fatal("expected invalid private key to be rejected")
 	}
 }
+
+func TestInitializeLocalFilesCreatesLoadableRegistry(t *testing.T) {
+	dir := t.TempDir() + "/local-poad"
+	if err := initializeLocalFiles(dir, 3); err != nil {
+		t.Fatal(err)
+	}
+	registryBytes, err := os.ReadFile(dir + "/registry.public.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digestBytes, err := os.ReadFile(dir + "/registry.public.json.sha256")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digestFields := strings.Fields(string(digestBytes))
+	if len(digestFields) == 0 {
+		t.Fatal("registry digest file is empty")
+	}
+	registry, err := poad.LoadIdentityRegistryJSON(registryBytes, digestFields[0])
+	if err != nil {
+		t.Fatalf("generated public registry cannot be loaded: %v", err)
+	}
+	if _, err := os.Stat(dir + "/agents.private.json"); err != nil {
+		t.Fatalf("private key file was not created: %v", err)
+	}
+	if _, err := registry.Get("local-agent-01"); err != nil {
+		t.Fatalf("generated Agent identity missing from registry: %v", err)
+	}
+	if err := initializeLocalFiles(dir, 3); err == nil {
+		t.Fatal("initialization should refuse to overwrite existing key files")
+	}
+}
