@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
@@ -258,12 +257,12 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON request"})
 		return
 	}
-	if strings.TrimSpace(req.StateRoot) == "" {
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "state_root is required"})
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request must contain exactly one JSON object"})
 		return
 	}
-	if _, err := io.Copy(io.Discard, r.Body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	if strings.TrimSpace(req.StateRoot) == "" {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "state_root is required"})
 		return
 	}
 
@@ -333,6 +332,3 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-// Keep context imported in this command's public API surface for graceful-shutdown
-// integration in the next step; this helper also makes cancellation behavior explicit.
-var _ = context.Canceled
