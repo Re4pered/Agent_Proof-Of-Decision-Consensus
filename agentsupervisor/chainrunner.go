@@ -66,8 +66,8 @@ type ChainRunner struct {
 	// finished before they get killed.
 	NodeExitGrace time.Duration
 	// PoADRegistryPath and PoADRegistrySHA256 configure the trusted Agent identity snapshot.
-	PoADRegistryPath               string
-	PoADRegistrySHA256             string
+	PoADRegistryPath   string
+	PoADRegistrySHA256 string
 	// PoADRequired rejects transaction blocks unless signed PoAD metadata and intent links validate.
 	PoADRequired bool
 	// PoADDecisionServiceConfigPath points to a local file containing Agent private keys.
@@ -263,10 +263,12 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		if err := waitForPoADDecisionService(ctx, serviceURL, 10*time.Second); err != nil {
 			return nil, fmt.Errorf("local PoAD decision service did not become ready: %w (logs in %s)", err, logDir)
 		}
+
 		requiredVotes := c.PoADRequiredVotes
 		if requiredVotes <= 0 {
 			requiredVotes = 2
 		}
+
 		timeoutSeconds := int(c.PoADDecisionTimeout / time.Second)
 		if timeoutSeconds <= 0 {
 			timeoutSeconds = 15
@@ -324,13 +326,13 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 	return &ChainOutcome{ChainDir: chainDir, ResultDir: resultDir, ShardNum: shardNum}, nil
 }
 
-
 func waitForPoADDecisionService(ctx context.Context, endpoint string, timeout time.Duration) error {
 	deadline := time.NewTimer(timeout)
 	defer deadline.Stop()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+
 	client := &http.Client{Timeout: 300 * time.Millisecond}
 
 	for {
