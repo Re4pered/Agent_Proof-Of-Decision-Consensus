@@ -469,7 +469,11 @@ func copyPoADPaymentManifest(sourcePath, chainDir string) error {
 	}
 
 	targetDigest := actualHex + "  " + PoADPaymentManifestFileName + "\n"
-	if err := os.WriteFile(filepath.Join(chainDir, PoADPaymentManifestDigestFileName), []byte(targetDigest), 0o644); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(chainDir, PoADPaymentManifestDigestFileName),
+		[]byte(targetDigest),
+		0o644,
+	); err != nil {
 		return fmt.Errorf("write staged PoAD payment manifest digest: %w", err)
 	}
 
