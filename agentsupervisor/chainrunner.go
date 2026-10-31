@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,6 +70,11 @@ type ChainRunner struct {
 	PoADRegistrySHA256 string
 	// PoADRequired rejects transaction blocks unless signed PoAD metadata and intent links validate.
 	PoADRequired bool
+	// PoADDecisionServiceConfigPath points to a local file containing Agent private keys.
+	// It is used only for local experiments and must never be committed.
+	PoADDecisionServiceConfigPath string
+	PoADRequiredVotes             int
+	PoADDecisionTimeout           time.Duration
 }
 
 // BinDirName hosts the cluster binaries inside the module root. A bare
@@ -90,6 +96,7 @@ func (c *ChainRunner) Build(ctx context.Context) error {
 	for _, target := range []struct{ pkg, name string }{
 		{"./cmd/consensusnode", "consensusnode"},
 		{"./cmd/supervisor", "supervisor"},
+		{"./cmd/poad-decision-service", "poad-decision-service"},
 	} {
 		binPath, err := c.binaryPath(target.name)
 		if err != nil {
@@ -178,8 +185,13 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		return nil, err
 	}
 
-	if c.PoADRequired && (c.PoADRegistryPath == "" || c.PoADRegistrySHA256 == "" || spec.IntentManifestPath == "") {
-		return nil, fmt.Errorf("required PoAD needs registry path/digest and an AgentSupervisor intent manifest")
+	if c.PoADRequired && (c.PoADRegistryPath == "" ||
+		c.PoADRegistrySHA256 == "" ||
+		spec.IntentManifestPath == "" ||
+		c.PoADDecisionServiceConfigPath == "") {
+		return nil, fmt.Errorf(
+			"required PoAD needs registry path/digest, an intent manifest, and a local decision-service config",
+		)
 	}
 
 	if (c.PoADRegistryPath == "") != (c.PoADRegistrySHA256 == "") {
@@ -217,6 +229,61 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		if c.PoADRequired {
 			nodeArgs = append(nodeArgs, "-poad-required")
 		}
+	}
+
+	if c.PoADRequired {
+		manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+
+		digestRaw, readErr := os.ReadFile(manifestPath + ".sha256")
+		if readErr != nil {
+			return nil, fmt.Errorf("read staged PoAD intent manifest digest for decision service: %w", readErr)
+		}
+
+		digestFields := strings.Fields(string(digestRaw))
+		if len(digestFields) == 0 {
+			return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
+		}
+
+		serviceBin, pathErr := c.binaryPath("poad-decision-service")
+		if pathErr != nil {
+			return nil, pathErr
+		}
+
+		serviceArgs := []string{
+			"-config", c.PoADDecisionServiceConfigPath,
+			"-manifest", manifestPath,
+			"-manifest-sha256", digestFields[0],
+			"-listen", "127.0.0.1:38881",
+		}
+		if _, startErr := procs.start(serviceBin, logDir, "poad_decision_service", serviceArgs...); startErr != nil {
+			return nil, fmt.Errorf("start local PoAD decision service: %w", startErr)
+		}
+
+		serviceURL := "http://127.0.0.1:38881/healthz"
+
+		if c.PoADDecisionTimeout <= 0 {
+			c.PoADDecisionTimeout = 15 * time.Second
+		}
+
+		if err := waitForPoADDecisionService(ctx, serviceURL, 10*time.Second); err != nil {
+			return nil, fmt.Errorf("local PoAD decision service did not become ready: %w (logs in %s)", err, logDir)
+		}
+
+		requiredVotes := c.PoADRequiredVotes
+		if requiredVotes <= 0 {
+			requiredVotes = 2
+		}
+
+		timeoutSeconds := int(c.PoADDecisionTimeout / time.Second)
+		if timeoutSeconds <= 0 {
+			timeoutSeconds = 15
+		}
+
+		nodeArgs = append(nodeArgs,
+			"-poad-agent-supervisor-endpoint", "http://127.0.0.1:38881/decisions",
+			"-poad-agent-supervisor-timeout-seconds", strconv.Itoa(timeoutSeconds),
+			"-poad-required-votes", strconv.Itoa(requiredVotes),
+		)
 	}
 
 	for shard := int64(0); shard < shardNum; shard++ {
@@ -262,6 +329,37 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 	}
 
 	return &ChainOutcome{ChainDir: chainDir, ResultDir: resultDir, ShardNum: shardNum}, nil
+}
+
+func waitForPoADDecisionService(ctx context.Context, endpoint string, timeout time.Duration) error {
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	client := &http.Client{Timeout: 300 * time.Millisecond}
+
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err == nil {
+			resp, requestErr := client.Do(req)
+			if requestErr == nil {
+				_ = resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					return nil
+				}
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline.C:
+			return fmt.Errorf("health endpoint %s did not return HTTP 200 before timeout", endpoint)
+		case <-ticker.C:
+		}
+	}
 }
 
 func (c *ChainRunner) graceDuration() time.Duration {
@@ -371,7 +469,11 @@ func copyPoADPaymentManifest(sourcePath, chainDir string) error {
 	}
 
 	targetDigest := actualHex + "  " + PoADPaymentManifestFileName + "\n"
-	if err := os.WriteFile(filepath.Join(chainDir, PoADPaymentManifestDigestFileName), []byte(targetDigest), 0o644); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(chainDir, PoADPaymentManifestDigestFileName),
+		[]byte(targetDigest),
+		0o644,
+	); err != nil {
 		return fmt.Errorf("write staged PoAD payment manifest digest: %w", err)
 	}
 

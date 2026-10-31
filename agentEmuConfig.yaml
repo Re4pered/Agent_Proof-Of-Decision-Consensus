@@ -17,8 +17,13 @@ chain:
   # Keep these empty for legacy/optional PoAD verification.
   poad_registry_path: ""
   poad_registry_sha256: ""
-  # WARNING: strict mode rejects legacy transaction blocks unless the block builder
-  # attaches valid PoAD decision evidence. Enable only after evidence production is integrated.
+  # Local-only signing service config created by: go run ./cmd/poad-decision-service -init-dir ./local-poad
+  # Keep this file outside version control; it contains private signing keys.
+  poad_decision_service_config_path: ""
+  poad_required_votes: 2
+  poad_decision_timeout_seconds: 15
+  # Strict mode launches the local signing service and requires valid PoAD evidence.
+  # Use only for local experiments; see docs/local-poad-decision-service.md.
   poad_required: false
 loop:
   # Caps the simulation loop; 1 means a single pass over the trace. Rounds

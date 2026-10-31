@@ -17,6 +17,7 @@ chain:
   enabled: true
   poad_registry_path: ./poad-identities.json
   poad_registry_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  poad_decision_service_config_path: ./local-poad/agents.private.json
   poad_required: true
 protocols:
   pay:
@@ -40,6 +41,9 @@ func TestLoadConfigLoadsStrictPoADSettings(t *testing.T) {
 	require.Equal(t, "./poad-identities.json", cfg.Chain.PoADRegistryPath)
 	require.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", cfg.Chain.PoADRegistrySHA256)
 	require.True(t, cfg.Chain.PoADRequired)
+	require.Equal(t, "./local-poad/agents.private.json", cfg.Chain.PoADDecisionServiceConfigPath)
+	require.Equal(t, 2, cfg.Chain.PoADRequiredVotes)
+	require.Equal(t, 15, cfg.Chain.PoADDecisionTimeoutSeconds)
 }
 
 func TestLoadConfigRejectsRegistryWithoutDigest(t *testing.T) {
@@ -79,4 +83,25 @@ protocols:
 
 	_, err := LoadConfig(writeAgentEmuConfig(t, content))
 	require.ErrorContains(t, err, "needs chain.enabled=true")
+}
+
+func TestLoadConfigRejectsStrictPoADWithoutLocalDecisionService(t *testing.T) {
+	content := `base:
+  blockemulator_config: ./config.yaml
+  result_dir: ./results
+experiment:
+  trace: ./trace.jsonl
+chain:
+  enabled: true
+  poad_registry_path: ./poad-identities.json
+  poad_registry_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  poad_required: true
+protocols:
+  pay:
+    plugin: direct-pay
+  identity:
+    plugin: did-simple
+`
+	_, err := LoadConfig(writeAgentEmuConfig(t, content))
+	require.ErrorContains(t, err, "poad_decision_service_config_path")
 }
