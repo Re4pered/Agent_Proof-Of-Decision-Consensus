@@ -228,10 +228,12 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 
 	if c.PoADRequired {
 		manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+
 		digestRaw, readErr := os.ReadFile(manifestPath + ".sha256")
 		if readErr != nil {
 			return nil, fmt.Errorf("read staged PoAD intent manifest digest for decision service: %w", readErr)
 		}
+
 		digestFields := strings.Fields(string(digestRaw))
 		if len(digestFields) == 0 {
 			return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
@@ -250,9 +252,11 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 			return nil, fmt.Errorf("start local PoAD decision service: %w", startErr)
 		}
 		serviceURL := "http://127.0.0.1:38881/healthz"
+
 		if c.PoADDecisionTimeout <= 0 {
 			c.PoADDecisionTimeout = 15 * time.Second
 		}
+
 		if err := waitForPoADDecisionService(ctx, serviceURL, 10*time.Second); err != nil {
 			return nil, fmt.Errorf("local PoAD decision service did not become ready: %w (logs in %s)", err, logDir)
 		}
@@ -264,6 +268,7 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		if timeoutSeconds <= 0 {
 			timeoutSeconds = 15
 		}
+
 		nodeArgs = append(nodeArgs,
 			"-poad-agent-supervisor-endpoint", "http://127.0.0.1:38881/decisions",
 			"-poad-agent-supervisor-timeout-seconds", strconv.Itoa(timeoutSeconds),
@@ -320,9 +325,11 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 func waitForPoADDecisionService(ctx context.Context, endpoint string, timeout time.Duration) error {
 	deadline := time.NewTimer(timeout)
 	defer deadline.Stop()
+
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	client := &http.Client{Timeout: 300 * time.Millisecond}
+
 	for {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 		if err == nil {
@@ -334,6 +341,7 @@ func waitForPoADDecisionService(ctx context.Context, endpoint string, timeout ti
 				}
 			}
 		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
