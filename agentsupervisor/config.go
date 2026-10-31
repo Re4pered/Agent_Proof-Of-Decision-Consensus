@@ -39,8 +39,8 @@ type Config struct {
 		PoADRequired bool `yaml:"poad_required"`
 		// PoADDecisionServiceConfigPath is a local-only file containing Agent private keys.
 		PoADDecisionServiceConfigPath string `yaml:"poad_decision_service_config_path"`
-		PoADRequiredVotes int `yaml:"poad_required_votes"`
-		PoADDecisionTimeoutSeconds int `yaml:"poad_decision_timeout_seconds"`
+		PoADRequiredVotes             int    `yaml:"poad_required_votes"`
+		PoADDecisionTimeoutSeconds    int    `yaml:"poad_decision_timeout_seconds"`
 	} `yaml:"chain"`
 	Loop struct {
 		// MaxRounds caps the simulation loop even if an AgentAPI keeps producing
