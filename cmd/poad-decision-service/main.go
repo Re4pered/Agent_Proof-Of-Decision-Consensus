@@ -61,6 +61,7 @@ func main() {
 	listenAddress := flag.String("listen", defaultListenAddress, "HTTP listen address (keep bound to localhost)")
 	initDir := flag.String("init-dir", "", "create local example keys and public registry in this directory, then exit")
 	agentCount := flag.Int("agents", 4, "number of local demo identities created by -init-dir")
+
 	flag.Parse()
 
 	if *initDir != "" {
@@ -94,6 +95,7 @@ func main() {
 	}
 	links, loadErr := poad.LoadTraceIntentLinksVerified(manifestFile, *manifestSHA)
 	closeErr := manifestFile.Close()
+
 	if loadErr != nil {
 		slog.Error("load trusted intent manifest", "error", loadErr)
 		os.Exit(1)
@@ -150,6 +152,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
+
 	var cfg serviceConfig
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
@@ -163,7 +166,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 	for _, agent := range cfg.Agents {
 		id := strings.TrimSpace(agent.AgentID)
 		if id == "" {
-			return nil, fmt.Errorf("Agent ID must not be empty")
+			return nil, fmt.Errorf("agent ID must not be empty")
 		}
 		if _, exists := keys[id]; exists {
 			return nil, fmt.Errorf("duplicate Agent ID %q", id)
@@ -177,6 +180,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 		}
 		keys[id] = ed25519.PrivateKey(keyBytes)
 	}
+
 	return keys, nil
 }
 
@@ -187,6 +191,7 @@ func initializeLocalFiles(dir string, count int) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
+
 	type publicIdentity struct {
 		AgentID      string `json:"agent_id"`
 		PublicKeyHex string `json:"public_key_hex"`
@@ -194,6 +199,7 @@ func initializeLocalFiles(dir string, count int) error {
 		KeyVersion   uint64 `json:"key_version"`
 	}
 	cfg := serviceConfig{Agents: make([]agentKeyConfig, 0, count)}
+
 	registry := make([]publicIdentity, 0, count)
 	for i := 1; i <= count; i++ {
 		publicKey, privateKey, err := poad.GenerateAgentKeyPair()
@@ -219,10 +225,12 @@ func initializeLocalFiles(dir string, count int) error {
 		return err
 	}
 	digest := sha256.Sum256(append(registryBytes, '\n'))
+
 	digestText := hex.EncodeToString(digest[:]) + "  registry.public.json\n"
 	if err := writeNewFile(filepath.Join(dir, "registry.public.json.sha256"), []byte(digestText), 0o644); err != nil {
 		return err
 	}
+
 	fmt.Printf("Created %d local demo identities in %s\n", count, dir)
 	fmt.Printf("Private keys: %s (keep local; do not commit)\n", filepath.Join(dir, "agents.private.json"))
 	fmt.Printf("Public registry: %s\n", filepath.Join(dir, "registry.public.json"))
@@ -239,17 +247,21 @@ func writeNewFile(path string, data []byte, mode os.FileMode) error {
 	if err := os.WriteFile(path, data, mode); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
+
 	return nil
 }
 
 func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
+
 	if r.Header.Get("Content-Type") != "application/json" {
 		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBytes)
+
 	defer func() { _ = r.Body.Close() }()
+
 	var req decisionRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -283,6 +295,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 		return
 	}
 	txHash := hex.EncodeToString(hash)
+
 	decisions := make([]poad.SignedDecision, 0, len(s.agents))
 	for agentID, privateKey := range s.agents {
 		decision, evalErr := poad.EvaluateWithTraceIntent(poad.VerificationInput{
@@ -299,6 +312,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 			return
 		}
 		decisions = append(decisions, signed)
+
 		slog.Info("poad_decision",
 			"agent_id", agentID,
 			"transaction_hash", txHash,
@@ -309,12 +323,14 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 			"policy_version", decision.PolicyVersion,
 			"verification_latency_ms", time.Since(started).Seconds()*1000)
 	}
+
 	writeJSON(w, http.StatusOK, decisionResponse{Decisions: decisions})
 }
 
 func sameIntent(a, b poad.TraceIntentLink) bool {
 	left, errLeft := json.Marshal(a)
 	right, errRight := json.Marshal(b)
+
 	return errLeft == nil && errRight == nil && bytes.Equal(left, right)
 }
 
