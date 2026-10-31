@@ -48,8 +48,8 @@ func main() {
 			PoADRegistrySHA256: cfg.Chain.PoADRegistrySHA256,
 			PoADRequired:       cfg.Chain.PoADRequired,
 			PoADDecisionServiceConfigPath: cfg.Chain.PoADDecisionServiceConfigPath,
-			PoADRequiredVotes: cfg.Chain.PoADRequiredVotes,
-			PoADDecisionTimeout: time.Duration(cfg.Chain.PoADDecisionTimeoutSeconds) * time.Second,
+			PoADRequiredVotes:              cfg.Chain.PoADRequiredVotes,
+			PoADDecisionTimeout:            time.Duration(cfg.Chain.PoADDecisionTimeoutSeconds) * time.Second,
 		}
 		if err := chain.Build(ctx); err != nil {
 			slog.Error("build blockemulator binaries", "err", err)
