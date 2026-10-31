@@ -94,6 +94,7 @@ func main() {
 		slog.Error("open trusted intent manifest", "error", err)
 		os.Exit(1)
 	}
+
 	links, loadErr := poad.LoadTraceIntentLinksVerified(manifestFile, *manifestSHA)
 	closeErr := manifestFile.Close()
 
@@ -187,6 +188,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 		if _, exists := keys[id]; exists {
 			return nil, fmt.Errorf("duplicate Agent ID %q", id)
 		}
+
 		keyBytes, err := hex.DecodeString(strings.TrimPrefix(strings.TrimSpace(agent.PrivateKeyHex), "0x"))
 		if err != nil {
 			return nil, fmt.Errorf("decode private key for %q: %w", id, err)
