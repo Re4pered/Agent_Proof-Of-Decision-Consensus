@@ -152,6 +152,7 @@ func isLoopbackAddress(address string) bool {
 	if err != nil {
 		return false
 	}
+
 	ip := net.ParseIP(host)
 
 	return ip != nil && ip.IsLoopback()
@@ -164,6 +165,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 	}
 
 	var cfg serviceConfig
+
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 
@@ -174,6 +176,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 	if len(cfg.Agents) == 0 {
 		return nil, fmt.Errorf("config must contain at least one Agent")
 	}
+
 	keys := make(map[string]ed25519.PrivateKey, len(cfg.Agents))
 	for _, agent := range cfg.Agents {
 		id := strings.TrimSpace(agent.AgentID)
@@ -288,6 +291,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{
 			"error": "Content-Type must be application/json",
 		})
+
 		return
 	}
 
