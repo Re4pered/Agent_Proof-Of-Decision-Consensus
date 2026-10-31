@@ -317,15 +317,29 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 
 	intent, err := poad.FindIntentForTransaction(s.links, req.Transaction)
 	if err != nil {
-		slog.Warn("poad_decision_request_rejected", "reason", "intent_link_unavailable", "error", err, "elapsed_ms", time.Since(started).Seconds()*1000)
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "transaction is not linked to a trusted intent"})
+		slog.Warn(
+			"poad_decision_request_rejected",
+			"reason", "intent_link_unavailable",
+			"error", err,
+			"elapsed_ms", time.Since(started).Seconds()*1000,
+		)
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+			"error": "transaction is not linked to a trusted intent",
+		})
 
 		return
 	}
 
 	if !sameIntent(intent, req.Intent) {
-		slog.Warn("poad_decision_request_rejected", "reason", "request_intent_differs_from_trusted_manifest", "transaction_hash", intentHash(req.Transaction), "elapsed_ms", time.Since(started).Seconds()*1000)
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "request intent does not match the trusted manifest"})
+		slog.Warn(
+			"poad_decision_request_rejected",
+			"reason", "request_intent_differs_from_trusted_manifest",
+			"transaction_hash", intentHash(req.Transaction),
+			"elapsed_ms", time.Since(started).Seconds()*1000,
+		)
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+			"error": "request intent does not match the trusted manifest",
+		})
 
 		return
 	}
