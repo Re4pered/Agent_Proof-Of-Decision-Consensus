@@ -132,6 +132,7 @@ func main() {
 		slog.Error("listen for local PoAD decisions", "error", err)
 		os.Exit(1)
 	}
+
 	slog.Info("local experimental PoAD decision service ready",
 		"listen", *listenAddress,
 		"agents", len(svc.agents),
@@ -165,6 +166,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 	var cfg serviceConfig
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
+
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("decode config: %w", err)
 	}
@@ -190,6 +192,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 		if len(keyBytes) != ed25519.PrivateKeySize {
 			return nil, fmt.Errorf("private key for %q must be %d bytes", id, ed25519.PrivateKeySize)
 		}
+
 		keys[id] = ed25519.PrivateKey(keyBytes)
 	}
 
@@ -219,9 +222,15 @@ func initializeLocalFiles(dir string, count int) error {
 		if err != nil {
 			return err
 		}
+
 		id := fmt.Sprintf("local-agent-%02d", i)
 		cfg.Agents = append(cfg.Agents, agentKeyConfig{AgentID: id, PrivateKeyHex: hex.EncodeToString(privateKey)})
-		registry = append(registry, publicIdentity{AgentID: id, PublicKeyHex: hex.EncodeToString(publicKey), Status: string(poad.IdentityActive), KeyVersion: 1})
+		registry = append(registry, publicIdentity{
+			AgentID:      id,
+			PublicKeyHex: hex.EncodeToString(publicKey),
+			Status:       string(poad.IdentityActive),
+			KeyVersion:   1,
+		})
 	}
 
 	cfgBytes, err := json.MarshalIndent(cfg, "", "  ")
@@ -240,6 +249,7 @@ func initializeLocalFiles(dir string, count int) error {
 	if err := writeNewFile(filepath.Join(dir, "registry.public.json"), append(registryBytes, '\n'), 0o644); err != nil {
 		return err
 	}
+
 	digest := sha256.Sum256(append(registryBytes, '\n'))
 
 	digestText := hex.EncodeToString(digest[:]) + "  registry.public.json\n"
@@ -295,6 +305,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request must contain exactly one JSON object"})
 		return
 	}
+
 	if strings.TrimSpace(req.StateRoot) == "" {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "state_root is required"})
 		return
