@@ -110,7 +110,11 @@ func main() {
 	svc := &decisionService{agents: cfg, links: links}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "agents": len(svc.agents), "intent_links": len(svc.links)})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status":       "ok",
+			"agents":       len(svc.agents),
+			"intent_links": len(svc.links),
+		})
 	})
 	mux.HandleFunc("POST /decisions", svc.handleDecisions)
 
@@ -252,6 +256,7 @@ func writeNewFile(path string, data []byte, mode os.FileMode) error {
 	} else if !os.IsNotExist(err) {
 		return err
 	}
+
 	if err := os.WriteFile(path, data, mode); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
@@ -266,6 +271,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
 		return
 	}
+
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBytes)
 
 	defer func() { _ = r.Body.Close() }()
@@ -273,10 +279,12 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 	var req decisionRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
+
 	if err := decoder.Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON request"})
 		return
 	}
+
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request must contain exactly one JSON object"})
 		return
@@ -317,11 +325,13 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "evaluate transaction decision"})
 			return
 		}
+
 		signed, signErr := poad.SignDecision(decision, privateKey)
 		if signErr != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "sign decision"})
 			return
 		}
+
 		decisions = append(decisions, signed)
 
 		slog.Info("poad_decision",
