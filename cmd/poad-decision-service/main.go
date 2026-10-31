@@ -69,6 +69,7 @@ func main() {
 			slog.Error("initialize local PoAD files", "error", err)
 			os.Exit(1)
 		}
+
 		return
 	}
 
@@ -100,6 +101,7 @@ func main() {
 		slog.Error("load trusted intent manifest", "error", loadErr)
 		os.Exit(1)
 	}
+
 	if closeErr != nil {
 		slog.Error("close trusted intent manifest", "error", closeErr)
 		os.Exit(1)
@@ -132,6 +134,7 @@ func main() {
 		"intent_links", len(svc.links),
 		"policy", poad.DefaultPolicyVersion,
 		"warning", "state is bound to the caller-supplied executed state root; this service does not independently execute transactions")
+
 	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("serve local PoAD decisions", "error", err)
 		os.Exit(1)
@@ -168,6 +171,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 		if id == "" {
 			return nil, fmt.Errorf("agent ID must not be empty")
 		}
+
 		if _, exists := keys[id]; exists {
 			return nil, fmt.Errorf("duplicate Agent ID %q", id)
 		}
@@ -282,11 +286,13 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		slog.Warn("poad_decision_request_rejected", "reason", "intent_link_unavailable", "error", err, "elapsed_ms", time.Since(started).Seconds()*1000)
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "transaction is not linked to a trusted intent"})
+
 		return
 	}
 	if !sameIntent(intent, req.Intent) {
 		slog.Warn("poad_decision_request_rejected", "reason", "request_intent_differs_from_trusted_manifest", "transaction_hash", intentHash(req.Transaction), "elapsed_ms", time.Since(started).Seconds()*1000)
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "request intent does not match the trusted manifest"})
+
 		return
 	}
 	hash, err := req.Transaction.Hash()
