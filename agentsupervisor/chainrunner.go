@@ -189,7 +189,9 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		c.PoADRegistrySHA256 == "" ||
 		spec.IntentManifestPath == "" ||
 		c.PoADDecisionServiceConfigPath == "") {
-		return nil, fmt.Errorf("required PoAD needs registry path/digest, an intent manifest, and a local decision-service config")
+		return nil, fmt.Errorf(
+			"required PoAD needs registry path/digest, an intent manifest, and a local decision-service config",
+		)
 	}
 
 	if (c.PoADRegistryPath == "") != (c.PoADRegistrySHA256 == "") {
