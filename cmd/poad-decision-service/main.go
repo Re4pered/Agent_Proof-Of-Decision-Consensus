@@ -137,7 +137,8 @@ func main() {
 		"agents", len(svc.agents),
 		"intent_links", len(svc.links),
 		"policy", poad.DefaultPolicyVersion,
-		"warning", "state is bound to the caller-supplied executed state root; this service does not independently execute transactions")
+		"warning", "state is bound to the caller-supplied executed state root; "+
+			"this service does not independently execute transactions")
 
 	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("serve local PoAD decisions", "error", err)
@@ -167,6 +168,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("decode config: %w", err)
 	}
+
 	if len(cfg.Agents) == 0 {
 		return nil, fmt.Errorf("config must contain at least one Agent")
 	}
@@ -198,6 +200,7 @@ func initializeLocalFiles(dir string, count int) error {
 	if count < 1 || count > 100 {
 		return fmt.Errorf("agent count must be between 1 and 100")
 	}
+
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
@@ -220,6 +223,7 @@ func initializeLocalFiles(dir string, count int) error {
 		cfg.Agents = append(cfg.Agents, agentKeyConfig{AgentID: id, PrivateKeyHex: hex.EncodeToString(privateKey)})
 		registry = append(registry, publicIdentity{AgentID: id, PublicKeyHex: hex.EncodeToString(publicKey), Status: string(poad.IdentityActive), KeyVersion: 1})
 	}
+
 	cfgBytes, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
@@ -228,6 +232,7 @@ func initializeLocalFiles(dir string, count int) error {
 	if err != nil {
 		return err
 	}
+
 	if err := writeNewFile(filepath.Join(dir, "agents.private.json"), append(cfgBytes, '\n'), 0o600); err != nil {
 		return err
 	}
@@ -277,6 +282,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 	defer func() { _ = r.Body.Close() }()
 
 	var req decisionRequest
+
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
@@ -308,6 +314,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 
 		return
 	}
+
 	hash, err := req.Transaction.Hash()
 	if err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "cannot hash transaction"})
