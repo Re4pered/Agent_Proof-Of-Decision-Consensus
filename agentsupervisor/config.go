@@ -88,7 +88,9 @@ func LoadConfig(path string) (Config, error) {
 		)
 	}
 
-	if cfg.Chain.PoADRequired && (!cfg.Chain.Enabled || cfg.Chain.PoADRegistryPath == "" || cfg.Chain.PoADDecisionServiceConfigPath == "") {
+	if cfg.Chain.PoADRequired && (!cfg.Chain.Enabled ||
+		cfg.Chain.PoADRegistryPath == "" ||
+		cfg.Chain.PoADDecisionServiceConfigPath == "") {
 		return Config{}, fmt.Errorf("chain.poad_required needs chain.enabled=true, both PoAD registry settings, and chain.poad_decision_service_config_path")
 	}
 
