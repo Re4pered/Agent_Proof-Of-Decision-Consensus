@@ -147,6 +147,7 @@ func isLoopbackAddress(address string) bool {
 		return false
 	}
 	ip := net.ParseIP(host)
+
 	return ip != nil && ip.IsLoopback()
 }
 
@@ -179,6 +180,7 @@ func loadServiceConfig(path string) (map[string]ed25519.PrivateKey, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode private key for %q: %w", id, err)
 		}
+
 		if len(keyBytes) != ed25519.PrivateKeySize {
 			return nil, fmt.Errorf("private key for %q must be %d bytes", id, ed25519.PrivateKeySize)
 		}
@@ -225,6 +227,7 @@ func initializeLocalFiles(dir string, count int) error {
 	if err := writeNewFile(filepath.Join(dir, "agents.private.json"), append(cfgBytes, '\n'), 0o600); err != nil {
 		return err
 	}
+
 	if err := writeNewFile(filepath.Join(dir, "registry.public.json"), append(registryBytes, '\n'), 0o644); err != nil {
 		return err
 	}
@@ -239,6 +242,7 @@ func initializeLocalFiles(dir string, count int) error {
 	fmt.Printf("Private keys: %s (keep local; do not commit)\n", filepath.Join(dir, "agents.private.json"))
 	fmt.Printf("Public registry: %s\n", filepath.Join(dir, "registry.public.json"))
 	fmt.Printf("Registry SHA-256: %s\n", hex.EncodeToString(digest[:]))
+
 	return nil
 }
 
@@ -289,6 +293,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 
 		return
 	}
+
 	if !sameIntent(intent, req.Intent) {
 		slog.Warn("poad_decision_request_rejected", "reason", "request_intent_differs_from_trusted_manifest", "transaction_hash", intentHash(req.Transaction), "elapsed_ms", time.Since(started).Seconds()*1000)
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "request intent does not match the trusted manifest"})
@@ -345,6 +350,7 @@ func intentHash(tx transaction.Transaction) string {
 	if err != nil {
 		return ""
 	}
+
 	return hex.EncodeToString(hash)
 }
 
@@ -353,4 +359,3 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
 }
-
