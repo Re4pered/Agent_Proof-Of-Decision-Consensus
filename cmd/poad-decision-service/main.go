@@ -214,6 +214,7 @@ func initializeLocalFiles(dir string, count int) error {
 		Status       string `json:"status"`
 		KeyVersion   uint64 `json:"key_version"`
 	}
+
 	cfg := serviceConfig{Agents: make([]agentKeyConfig, 0, count)}
 
 	registry := make([]publicIdentity, 0, count)
@@ -237,6 +238,7 @@ func initializeLocalFiles(dir string, count int) error {
 	if err != nil {
 		return err
 	}
+
 	registryBytes, err := json.MarshalIndent(registry, "", "  ")
 	if err != nil {
 		return err
@@ -283,7 +285,9 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 	started := time.Now()
 
 	if r.Header.Get("Content-Type") != "application/json" {
-		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{
+			"error": "Content-Type must be application/json",
+		})
 		return
 	}
 
@@ -331,6 +335,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "cannot hash transaction"})
 		return
 	}
+
 	txHash := hex.EncodeToString(hash)
 
 	decisions := make([]poad.SignedDecision, 0, len(s.agents))
