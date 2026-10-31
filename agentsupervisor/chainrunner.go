@@ -66,15 +66,15 @@ type ChainRunner struct {
 	// finished before they get killed.
 	NodeExitGrace time.Duration
 	// PoADRegistryPath and PoADRegistrySHA256 configure the trusted Agent identity snapshot.
-	PoADRegistryPath   string
-	PoADRegistrySHA256 string
+	PoADRegistryPath               string
+	PoADRegistrySHA256             string
 	// PoADRequired rejects transaction blocks unless signed PoAD metadata and intent links validate.
 	PoADRequired bool
 	// PoADDecisionServiceConfigPath points to a local file containing Agent private keys.
 	// It is used only for local experiments and must never be committed.
 	PoADDecisionServiceConfigPath string
-	PoADRequiredVotes int
-	PoADDecisionTimeout time.Duration
+	PoADRequiredVotes             int
+	PoADDecisionTimeout           time.Duration
 }
 
 // BinDirName hosts the cluster binaries inside the module root. A bare
@@ -238,10 +238,12 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		if len(digestFields) == 0 {
 			return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
 		}
+
 		serviceBin, pathErr := c.binaryPath("poad-decision-service")
 		if pathErr != nil {
 			return nil, pathErr
 		}
+
 		serviceArgs := []string{
 			"-config", c.PoADDecisionServiceConfigPath,
 			"-manifest", manifestPath,
@@ -251,6 +253,7 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		if _, startErr := procs.start(serviceBin, logDir, "poad_decision_service", serviceArgs...); startErr != nil {
 			return nil, fmt.Errorf("start local PoAD decision service: %w", startErr)
 		}
+
 		serviceURL := "http://127.0.0.1:38881/healthz"
 
 		if c.PoADDecisionTimeout <= 0 {
