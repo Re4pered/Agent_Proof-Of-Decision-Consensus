@@ -50,6 +50,7 @@ func (s *StaticShardOp) BuildProposal(ctx context.Context) (*message.Proposal, e
 	} else {
 		txs, err = s.txPool.PackTxs(int(s.cfg.BlockSizeLimit))
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("txPool.PackTxs failed: %w", err)
 	}
