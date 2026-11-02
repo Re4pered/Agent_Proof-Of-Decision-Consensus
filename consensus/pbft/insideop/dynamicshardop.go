@@ -122,9 +122,21 @@ func (c *DynamicShardOp) ProposalCommitAndDeliver(
 }
 
 func (c *DynamicShardOp) buildBlockProposal(ctx context.Context) (*message.Proposal, error) {
-	txs, err := c.packValidTxs(ctx, int(c.cfg.BlockSizeLimit))
+	packLimit := int(c.cfg.BlockSizeLimit)
+	if c.requirePoAD {
+		// fetchTxsAndAccountStates uses the single-item pop for size 1, regardless
+		// of whether the pool is configured to count transactions or bytes.
+		packLimit = 1
+	}
+
+	txs, err := c.packValidTxs(ctx, packLimit)
 	if err != nil {
 		return nil, fmt.Errorf("txPool.PackTxs failed: %w", err)
+	}
+
+	if c.requirePoAD && len(txs) == 0 {
+		// Empty or fully forwarded batches cannot carry transaction-bound PoAD.
+		return nil, nil
 	}
 
 	p, err := c.tbo.BuildTxBlockProposal(ctx, txs)
@@ -486,7 +498,16 @@ func (c *DynamicShardOp) getTxDestLocByAccountState(
 func (c *DynamicShardOp) fetchTxsAndAccountStates(
 	ctx context.Context, size int,
 ) ([]transaction.Transaction, map[account.Address]int64, error) {
-	txs, err := c.txPool.PackTxs(size)
+	var txs []transaction.Transaction
+
+	var err error
+
+	if c.requirePoAD && size == 1 {
+		txs, err = packOnePoADTransaction(c.txPool)
+	} else {
+		txs, err = c.txPool.PackTxs(size)
+	}
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("PackTxs failed: %w", err)
 	}

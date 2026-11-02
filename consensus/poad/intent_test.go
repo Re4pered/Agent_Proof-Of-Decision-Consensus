@@ -183,3 +183,29 @@ func TestLoadTraceIntentLinksVerifiedRequiresDigest(t *testing.T) {
 		t.Fatal("LoadTraceIntentLinksVerified() should require a trusted digest")
 	}
 }
+
+func TestFindIntentForRelayTransactionUsesOriginalPaymentHash(t *testing.T) {
+	intent, tx := paymentFixture()
+	originalHash, err := tx.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx.RelayStage = transaction.Relay1Tx
+	tx.ROriginalHash = originalHash
+
+	found, err := FindIntentForTransaction([]TraceIntentLink{intent}, tx)
+	if err != nil {
+		t.Fatalf("FindIntentForTransaction() error = %v", err)
+	}
+	if found.RequestID != intent.RequestID {
+		t.Fatalf("request ID = %q, want %q", found.RequestID, intent.RequestID)
+	}
+
+	status, reasons, err := VerifyPaymentIntent(found, tx)
+	if err != nil {
+		t.Fatalf("VerifyPaymentIntent() error = %v", err)
+	}
+	if status != Pass {
+		t.Fatalf("VerifyPaymentIntent() status = %v, reasons = %v; want Pass", status, reasons)
+	}
+}
