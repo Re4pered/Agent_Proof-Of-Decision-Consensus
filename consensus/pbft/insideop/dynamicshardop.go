@@ -128,10 +128,12 @@ func (c *DynamicShardOp) buildBlockProposal(ctx context.Context) (*message.Propo
 		// of whether the pool is configured to count transactions or bytes.
 		packLimit = 1
 	}
+
 	txs, err := c.packValidTxs(ctx, packLimit)
 	if err != nil {
 		return nil, fmt.Errorf("txPool.PackTxs failed: %w", err)
 	}
+
 	if c.requirePoAD && len(txs) == 0 {
 		// Empty or fully forwarded batches cannot carry transaction-bound PoAD.
 		return nil, nil
@@ -498,11 +500,13 @@ func (c *DynamicShardOp) fetchTxsAndAccountStates(
 ) ([]transaction.Transaction, map[account.Address]int64, error) {
 	var txs []transaction.Transaction
 	var err error
+
 	if c.requirePoAD && size == 1 {
 		txs, err = packOnePoADTransaction(c.txPool)
 	} else {
 		txs, err = c.txPool.PackTxs(size)
 	}
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("PackTxs failed: %w", err)
 	}
