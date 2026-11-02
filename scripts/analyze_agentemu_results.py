@@ -23,6 +23,32 @@ def rows(path):
         return list(csv.DictReader(f))
 
 
+def read_structured_logs(paths):
+    """Read JSON structured log records from experiment log files."""
+    records = []
+    for path in paths:
+        try:
+            with path.open(encoding="utf-8", errors="replace") as stream:
+                for line in stream:
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(item, dict):
+                        records.append(item)
+        except OSError:
+            continue
+    return records
+
+
+def percentile(values, fraction):
+    xs = sorted(x for x in values if x is not None)
+    if not xs:
+        return None
+    index = max(0, min(len(xs) - 1, int((len(xs) * fraction + 0.999999)) - 1))
+    return xs[index]
+
+
 def count_lines(path):
     if not path.exists():
         return 0
@@ -54,6 +80,11 @@ def analyze(round_dir):
         pass
     log_files = list((chain / "logs").rglob("*.log")) if (chain / "logs").exists() else []
     log = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in log_files).lower()
+    structured_logs = read_structured_logs(log_files)
+    completed_decision_requests = [r for r in structured_logs if r.get("msg") == "poad_decision_request_completed"]
+    agent_decision_records = [r for r in structured_logs if r.get("msg") == "poad_decision"]
+    rejected_decision_requests = [r for r in structured_logs if r.get("msg") == "poad_decision_request_rejected"]
+    decision_latencies = [num(r.get("decision_latency_ms")) for r in completed_decision_requests]
     optional = "poad proposal validation is optional" in log
     no_registry = "no identity registry is configured" in log
     required = cfg.get("poad_required")
@@ -100,7 +131,15 @@ def analyze(round_dir):
             "intent_violation_rejection_rate": {"value": None, "status": "not_measured", "reason": "Requires labelled intent-violation cases and decision-level rejection records."},
             "invalid_or_missing_decision_evidence_rejection_rate": {"value": None, "status": "not_measured", "reason": "Current run does not provide decision-evidence rejection counters."},
             "valid_transaction_acceptance_rate": {"value": None, "status": "not_measured", "reason": "Planned transactions cannot yet be reliably joined to all committed/rejected outcomes."},
-            "decision_verification_latency_ms": {"value": None, "status": "not_measured", "reason": "Per-decision verification timing is not recorded."}
+            "decision_request_completed_count": len(completed_decision_requests),
+            "agent_decision_record_count": len(agent_decision_records),
+            "decision_request_rejection_count": len(rejected_decision_requests),
+            "average_decision_latency_ms": mean(decision_latencies),
+            "p95_decision_latency_ms": percentile(decision_latencies, 0.95),
+            "accept_decision_count": sum(int(num(r.get("accept_count")) or 0) for r in completed_decision_requests),
+            "reject_decision_count": sum(int(num(r.get("reject_count")) or 0) for r in completed_decision_requests),
+            "abstain_decision_count": sum(int(num(r.get("abstain_count")) or 0) for r in completed_decision_requests),
+            "decision_verification_latency_ms": {"value": mean(decision_latencies), "status": "observed" if any(x is not None for x in decision_latencies) else "not_measured", "reason": "Mean request-level latency from poad_decision_request_completed logs; rejected requests are counted separately."}
         },
         "consensus_health": {
             "block_record_node_files": len(block_files),
@@ -180,7 +219,13 @@ def main():
             f"| 意图违规拦截率 | 未测得：{a['intent_violation_rejection_rate']['reason']} |",
             f"| 无效/缺失决策证据拒绝率 | 未测得：{a['invalid_or_missing_decision_evidence_rejection_rate']['reason']} |",
             f"| 有效交易接受率 | 未测得：{a['valid_transaction_acceptance_rate']['reason']} |",
-            f"| Agent 决策验证延迟 | 未测得：{a['decision_verification_latency_ms']['reason']} |", "",
+            f"| 成功完成的决策请求数 | {a['decision_request_completed_count']} |",
+            f"| Agent 单体决策记录数 | {a['agent_decision_record_count']} |",
+            f"| 被拒绝的决策请求数 | {a['decision_request_rejection_count']} |",
+            f"| ACCEPT / REJECT / ABSTAIN 决策数 | {a['accept_decision_count']} / {a['reject_decision_count']} / {a['abstain_decision_count']} |",
+            f"| 平均决策请求耗时（ms） | {fmt(a['average_decision_latency_ms'])} |",
+            f"| P95 决策请求耗时（ms） | {fmt(a['p95_decision_latency_ms'])} |",
+            f"| Agent 决策验证延迟 | {fmt(a['decision_verification_latency_ms']['value']) if a['decision_verification_latency_ms']['value'] is not None else '未测得'} |", "",
             "### 共识运行健康", "",
             "| 指标 | 结果 |", "|---|---|",
             f"| 有区块记录的节点 | {c['nodes_with_block_records']} / {c['block_record_node_files']} |",
