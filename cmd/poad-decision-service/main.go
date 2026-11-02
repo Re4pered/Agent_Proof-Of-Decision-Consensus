@@ -388,6 +388,27 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 			"verification_latency_ms", time.Since(started).Seconds()*1000)
 	}
 
+	accepts, rejects, abstains := 0, 0, 0
+	for _, signed := range decisions {
+		switch signed.Decision.Result {
+		case poad.Accept:
+			accepts++
+		case poad.Reject:
+			rejects++
+		default:
+			abstains++
+		}
+	}
+	slog.Info("poad_decision_request_completed",
+		"transaction_hash", txHash,
+		"request_id", intent.RequestID,
+		"state_root", req.StateRoot,
+		"agent_count", len(decisions),
+		"accept_count", accepts,
+		"reject_count", rejects,
+		"abstain_count", abstains,
+		"decision_latency_ms", time.Since(started).Seconds()*1000)
+
 	writeJSON(w, http.StatusOK, decisionResponse{Decisions: decisions})
 }
 

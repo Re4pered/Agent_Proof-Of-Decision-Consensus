@@ -7,6 +7,7 @@ import (
 	"github.com/HuangLab-SYSU/block-emulator-x/config"
 	"github.com/HuangLab-SYSU/block-emulator-x/consensus/pbft/insideop/txblockop"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/chain"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/txpool"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/message"
 )
@@ -38,9 +39,23 @@ func NewStaticShardOp(
 }
 
 func (s *StaticShardOp) BuildProposal(ctx context.Context) (*message.Proposal, error) {
-	txs, err := s.txPool.PackTxs(int(s.cfg.BlockSizeLimit))
+	var (
+		txs []transaction.Transaction
+		err error
+	)
+	if s.requirePoAD {
+		// PoAD currently finalizes one transaction hash per block. Use a count-based
+		// single-item pop even when the normal pool limit is measured in bytes.
+		txs, err = packOnePoADTransaction(s.txPool)
+	} else {
+		txs, err = s.txPool.PackTxs(int(s.cfg.BlockSizeLimit))
+	}
 	if err != nil {
 		return nil, fmt.Errorf("txPool.PackTxs failed: %w", err)
+	}
+	if s.requirePoAD && len(txs) == 0 {
+		// An empty block cannot carry a transaction-bound PoAD decision.
+		return nil, nil
 	}
 
 	p, err := s.tbo.BuildTxBlockProposal(ctx, txs)

@@ -52,12 +52,10 @@ func LoadTraceIntentLinks(reader io.Reader) ([]TraceIntentLink, error) {
 
 // FindIntentForTransaction returns the trace action linked to the transaction hash.
 func FindIntentForTransaction(links []TraceIntentLink, tx transaction.Transaction) (TraceIntentLink, error) {
-	hash, err := tx.Hash()
+	actualHash, err := paymentIntentLookupHash(tx)
 	if err != nil {
 		return TraceIntentLink{}, fmt.Errorf("hash transaction for intent lookup: %w", err)
 	}
-
-	actualHash := fmt.Sprintf("%x", hash)
 
 	var matched *TraceIntentLink
 
@@ -82,6 +80,22 @@ func FindIntentForTransaction(links []TraceIntentLink, tx transaction.Transactio
 	return *matched, nil
 }
 
+// paymentIntentLookupHash returns the original payment hash for relay-stage
+// transactions. Agent decisions still bind the actual encoded transaction hash;
+// this helper is only for resolving the originating payment intent.
+func paymentIntentLookupHash(tx transaction.Transaction) (string, error) {
+	if tx.RelayStage != transaction.UndeterminedRelayTx && len(tx.ROriginalHash) > 0 {
+		return fmt.Sprintf("%x", tx.ROriginalHash), nil
+	}
+
+	hash, err := tx.Hash()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hash), nil
+}
+
 // VerifyPaymentIntent checks a compiled payment transaction against its trace link.
 // It verifies the action-to-hash binding, endpoints, and amount. It does not yet
 // evaluate free-form natural-language intent or external evidence.
@@ -92,7 +106,16 @@ func VerifyPaymentIntent(intent TraceIntentLink, tx transaction.Transaction) (Ch
 		return Unknown, []string{"payment_intent_metadata_missing"}, nil
 	}
 
-	hash, err := tx.Hash()
+	intentTx := tx
+	if tx.RelayStage != transaction.UndeterminedRelayTx && len(tx.ROriginalHash) > 0 {
+		// Relay transactions change the encoded transaction hash by carrying
+		// relay metadata. Validate the original payment intent against the
+		// canonical pre-relay transaction while PoAD decisions remain bound to
+		// the actual relayed transaction hash.
+		intentTx.RelayTxOpt = transaction.RelayTxOpt{}
+	}
+
+	hash, err := intentTx.Hash()
 	if err != nil {
 		return Unknown, nil, fmt.Errorf("hash transaction for intent check: %w", err)
 	}
@@ -113,7 +136,7 @@ func VerifyPaymentIntent(intent TraceIntentLink, tx transaction.Transaction) (Ch
 	}
 
 	var reasons []string
-	if tx.TxType() != transaction.NormalTxType || len(tx.Data) != 0 {
+	if intentTx.TxType() != transaction.NormalTxType || len(intentTx.Data) != 0 {
 		reasons = append(reasons, "payment_transaction_type_mismatch")
 	}
 

@@ -67,6 +67,23 @@ func (t *TxPool) PackTxs(limit int) ([]transaction.Transaction, error) {
 	return packed, nil
 }
 
+// PackOneTx removes at most one transaction regardless of whether this pool's
+// configured packing limit is measured in transaction count or encoded bytes.
+func (t *TxPool) PackOneTx() ([]transaction.Transaction, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if len(t.queue) == 0 {
+		return []transaction.Transaction{}, nil
+	}
+
+	tx := t.queue[0]
+	t.queue = t.queue[1:]
+	slog.Debug("one transaction packed for strict PoAD proposal", "tx pool size", len(t.queue))
+
+	return []transaction.Transaction{tx}, nil
+}
+
 func (t *TxPool) GetTxListSize(txs []transaction.Transaction) (int, error) {
 	switch t.cfg.Type {
 	case config.TxPoolByteType:

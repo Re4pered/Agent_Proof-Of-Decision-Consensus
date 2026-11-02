@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/block"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/transaction"
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/core/txpool"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/message"
 )
 
@@ -27,6 +29,19 @@ type PoADProposalBuilder interface {
 // PoADProposalBuildConfigurable exposes proposal-time PoAD metadata generation.
 type PoADProposalBuildConfigurable interface {
 	SetPoADProposalBuilder(PoADProposalBuilder)
+}
+
+// packOnePoADTransaction preserves the one-transaction-per-block PoAD invariant
+// even when the tx pool's normal limit is measured in encoded bytes.
+func packOnePoADTransaction(pool txpool.TxPool) ([]transaction.Transaction, error) {
+	packer, ok := pool.(interface {
+		PackOneTx() ([]transaction.Transaction, error)
+	})
+	if !ok {
+		return pool.PackTxs(1)
+	}
+
+	return packer.PackOneTx()
 }
 
 // buildPoADProposalMetadata enriches a transaction proposal before PBFT validation begins.
