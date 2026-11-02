@@ -53,6 +53,7 @@ func (s *StaticShardOp) BuildProposal(ctx context.Context) (*message.Proposal, e
 	if err != nil {
 		return nil, fmt.Errorf("txPool.PackTxs failed: %w", err)
 	}
+
 	if s.requirePoAD && len(txs) == 0 {
 		// An empty block cannot carry a transaction-bound PoAD decision.
 		return nil, nil
