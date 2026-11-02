@@ -389,6 +389,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 	}
 
 	accepts, rejects, abstains := 0, 0, 0
+
 	for _, signed := range decisions {
 		switch signed.Decision.Result {
 		case poad.Accept:
@@ -399,6 +400,7 @@ func (s *decisionService) handleDecisions(w http.ResponseWriter, r *http.Request
 			abstains++
 		}
 	}
+
 	slog.Info("poad_decision_request_completed",
 		"transaction_hash", txHash,
 		"request_id", intent.RequestID,
