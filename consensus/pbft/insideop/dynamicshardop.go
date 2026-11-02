@@ -499,6 +499,7 @@ func (c *DynamicShardOp) fetchTxsAndAccountStates(
 	ctx context.Context, size int,
 ) ([]transaction.Transaction, map[account.Address]int64, error) {
 	var txs []transaction.Transaction
+
 	var err error
 
 	if c.requirePoAD && size == 1 {
