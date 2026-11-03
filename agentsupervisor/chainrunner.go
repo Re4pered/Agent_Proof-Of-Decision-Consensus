@@ -331,6 +331,7 @@ func (c *ChainRunner) nodeStartupArgs(cfgPath, tablePath, chainDir string) ([]st
 	}
 
 	manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+
 	digestRaw, err := os.ReadFile(manifestPath + ".sha256")
 	if err != nil {
 		return nil, fmt.Errorf("read staged PoAD intent manifest digest: %w", err)
