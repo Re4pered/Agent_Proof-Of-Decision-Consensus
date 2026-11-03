@@ -13,18 +13,18 @@ chain:
   enabled: true
   run_timeout_seconds: 600
   node_exit_grace_seconds: 15
-  # Optional trusted Agent public-identity snapshot and independently provisioned digest.
-  # Keep these empty for legacy/optional PoAD verification.
-  poad_registry_path: ""
+  # Strict PoAD is enabled by default for LOCAL EXPERIMENTS.
+  # First run creates four demo signing identities in ignored ./local-poad/.
+  # Later runs reuse the same keys and verify the local registry's SHA-256 sidecar.
+  # The digest is deliberately not pinned independently: this is a local demo,
+  # not a production trust anchor. See docs/local-poad-decision-service.md.
+  poad_registry_path: ./local-poad/registry.public.json
   poad_registry_sha256: ""
-  # Local-only signing service config created by: go run ./cmd/poad-decision-service -init-dir ./local-poad
-  # Keep this file outside version control; it contains private signing keys.
-  poad_decision_service_config_path: ""
+  poad_decision_service_config_path: ./local-poad/agents.private.json
+  poad_auto_init_local_identities: true
+  poad_required: true
   poad_required_votes: 2
   poad_decision_timeout_seconds: 15
-  # Strict mode launches the local signing service and requires valid PoAD evidence.
-  # Use only for local experiments; see docs/local-poad-decision-service.md.
-  poad_required: false
 loop:
   # Caps the simulation loop; 1 means a single pass over the trace. Rounds
   # beyond the first require an AgentAPI feedback implementation.
