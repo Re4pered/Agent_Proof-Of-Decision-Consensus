@@ -97,6 +97,13 @@ func LoadConfig(path string) (Config, error) {
 		)
 	}
 
+	if cfg.Chain.PoADDecisionServiceConfigPath != "" && !cfg.Chain.PoADRequired {
+		return Config{}, fmt.Errorf(
+			"chain.poad_decision_service_config_path requires chain.poad_required: true " +
+				"to enable strict PoAD consensus",
+		)
+	}
+
 	if cfg.Chain.PoADRequiredVotes <= 0 {
 		cfg.Chain.PoADRequiredVotes = 2
 	}
