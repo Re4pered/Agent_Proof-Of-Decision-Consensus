@@ -203,6 +203,7 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 	if c.PoADRequired {
 		manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
 
+
 		digestRaw, readErr := os.ReadFile(manifestPath + ".sha256")
 		if readErr != nil {
 			return nil, fmt.Errorf("read staged PoAD intent manifest digest for decision service: %w", readErr)
