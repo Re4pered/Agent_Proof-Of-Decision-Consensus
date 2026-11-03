@@ -29,6 +29,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := cfg.PrepareLocalPoADIdentities(ctx); err != nil {
+		slog.Error("prepare local PoAD identities", "err", err)
+		os.Exit(1)
+	}
+
 	records, err := agentsupervisor.LoadTrace(cfg.Experiment.Trace)
 	if err != nil {
 		slog.Error("load trace", "err", err)
