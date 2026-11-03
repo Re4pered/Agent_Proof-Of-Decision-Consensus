@@ -3,6 +3,7 @@ package agentsupervisor
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,4 +105,11 @@ protocols:
 `
 	_, err := LoadConfig(writeAgentEmuConfig(t, content))
 	require.ErrorContains(t, err, "poad_decision_service_config_path")
+}
+
+func TestLoadConfigRejectsDecisionServiceWithoutStrictPoAD(t *testing.T) {
+	content := strings.Replace(testAgentEmuConfig, "poad_required: true", "poad_required: false", 1)
+
+	_, err := LoadConfig(writeAgentEmuConfig(t, content))
+	require.ErrorContains(t, err, "requires chain.poad_required: true")
 }
