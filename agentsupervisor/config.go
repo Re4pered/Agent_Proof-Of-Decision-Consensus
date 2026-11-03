@@ -41,9 +41,9 @@ type Config struct {
 		PoADDecisionServiceConfigPath string `yaml:"poad_decision_service_config_path"`
 		// PoADAutoInitLocalIdentities provisions/reuses demo keys and reads the
 		// locally verified registry digest. Never use as a production trust anchor.
-		PoADAutoInitLocalIdentities   bool `yaml:"poad_auto_init_local_identities"`
-		PoADRequiredVotes             int    `yaml:"poad_required_votes"`
-		PoADDecisionTimeoutSeconds    int    `yaml:"poad_decision_timeout_seconds"`
+		PoADAutoInitLocalIdentities bool `yaml:"poad_auto_init_local_identities"`
+		PoADRequiredVotes           int  `yaml:"poad_required_votes"`
+		PoADDecisionTimeoutSeconds  int  `yaml:"poad_decision_timeout_seconds"`
 	} `yaml:"chain"`
 	Loop struct {
 		// MaxRounds caps the simulation loop even if an AgentAPI keeps producing
