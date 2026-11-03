@@ -138,8 +138,11 @@ func validatePoADProviderConfig(
 func main() {
 	flag.Parse()
 
-	log.Printf("consensus node PoAD startup flags: required=%t registry_configured=%t manifest_configured=%t endpoint_configured=%t",
-		*poadRequired, *poadRegistryPath != "", *poadIntentManifestPath != "", *poadDecisionEndpoint != "")
+	log.Printf(
+		"consensus node PoAD startup flags: required=%t registry_configured=%t "+
+			"manifest_configured=%t endpoint_configured=%t",
+		*poadRequired, *poadRegistryPath != "", *poadIntentManifestPath != "", *poadDecisionEndpoint != "",
+	)
 
 	lp, err := config.LoadLocalParams()
 	if err != nil {
