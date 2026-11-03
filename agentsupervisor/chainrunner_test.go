@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -135,4 +136,44 @@ func TestChainRunnerStagesPoADPaymentManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, source, staged)
 	require.FileExists(t, filepath.Join(chainDir, PoADPaymentManifestDigestFileName))
+}
+
+func TestChainRunnerNodeStartupArgsStrictPoAD(t *testing.T) {
+	c := newTestChainRunner(t)
+	c.PoADRequired = true
+	c.PoADRegistryPath = "registry.public.json"
+	c.PoADRegistrySHA256 = strings.Repeat("a", 64)
+	c.PoADDecisionServiceConfigPath = "agents.private.json"
+
+	chainDir := t.TempDir()
+	manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+	require.NoError(t, os.WriteFile(manifestPath+".sha256", []byte(strings.Repeat("b", 64)+"\\n"), 0o600))
+
+	args, err := c.nodeStartupArgs("config.yaml", "ip_table.json", chainDir)
+	require.NoError(t, err)
+	require.Contains(t, args, "-poad-required=true")
+	require.Contains(t, args, "-poad-intent-manifest")
+	require.Contains(t, args, manifestPath)
+	require.Contains(t, args, "-poad-intent-manifest-sha256")
+	require.Contains(t, args, "-poad-registry")
+}
+
+func TestChainRunnerNodeStartupArgsOptionalPoADOmitsManifest(t *testing.T) {
+	c := newTestChainRunner(t)
+	c.PoADRegistryPath = "registry.public.json"
+	c.PoADRegistrySHA256 = strings.Repeat("a", 64)
+
+	args, err := c.nodeStartupArgs("config.yaml", "ip_table.json", t.TempDir())
+	require.NoError(t, err)
+	require.Contains(t, args, "-poad-registry")
+	require.NotContains(t, args, "-poad-required=true")
+	require.NotContains(t, args, "-poad-intent-manifest")
+}
+
+func TestChainRunnerNodeStartupArgsRejectsIncompleteStrictPoAD(t *testing.T) {
+	c := newTestChainRunner(t)
+	c.PoADRequired = true
+
+	_, err := c.nodeStartupArgs("config.yaml", "ip_table.json", t.TempDir())
+	require.ErrorContains(t, err, "strict PoAD requires")
 }
