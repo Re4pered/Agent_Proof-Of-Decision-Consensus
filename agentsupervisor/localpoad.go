@@ -85,6 +85,7 @@ func (cfg *Config) PrepareLocalPoADIdentities(ctx context.Context) error {
 
 	sum := sha256.Sum256(registryBytes)
 	actualDigest := hex.EncodeToString(sum[:])
+
 	if !strings.EqualFold(fields[0], actualDigest) {
 		return fmt.Errorf("local PoAD registry SHA-256 mismatch; refusing to start strict consensus")
 	}
