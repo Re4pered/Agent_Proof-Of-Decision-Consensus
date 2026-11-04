@@ -4,6 +4,28 @@
 
 > **实验边界：** 这是本地原型，不是生产级分布式 Agent 网络，也不包含 LLM 推理。当前配置中的多个 Agent 身份由同一个本地进程托管，签名并不代表独立的 Agent 运行环境。服务使用调用方传入的已执行状态根进行绑定，不会自行执行交易或独立重算状态根。普通交易执行和状态转换校验仍必须由区块链节点完成。
 
+## 默认用法：不再手动填写 SHA-256
+
+仓库中的 `agentEmuConfig.yaml` 默认启用 **本地实验严格 PoAD**：
+
+```yaml
+chain:
+  enabled: true
+  poad_registry_path: ./local-poad/registry.public.json
+  poad_registry_sha256: ""
+  poad_decision_service_config_path: ./local-poad/agents.private.json
+  poad_auto_init_local_identities: true
+  poad_required: true
+  poad_required_votes: 2
+  poad_decision_timeout_seconds: 15
+```
+
+只需从仓库根目录运行 `go run ./cmd/agentemu -config agentEmuConfig.yaml`（或 Windows 的 `run_agentemu.bat`）。首次启动会自动生成四个本地演示 Agent 身份；以后会**复用**同一套私钥。程序检查 `registry.public.json` 和本地 `.sha256` 文件是否匹配，并把正确摘要填入内存中的运行配置，不修改 YAML、不把私钥提交到 GitHub。如果文件只生成了一部分或摘要不匹配，会拒绝启动；请先备份并人工核查，程序不会自动覆盖已有身份。
+
+> **信任边界：** 自动模式从本地同目录摘要文件校验注册表完整性，不能替代独立分发并钉住的可信公钥摘要。它只用于单机实验，不构成生产环境的信任锚。严格模式的签名、意图和提案校验仍保持开启。
+
+如果需要手动指定已独立信任的注册表及其摘要，设置 `poad_auto_init_local_identities: false`，然后填写 `poad_registry_sha256` 的真实 64 位十六进制值。切勿提交 `local-poad/agents.private.json`。
+
 ## 1. 生成本地测试身份
 
 在仓库根目录执行：
@@ -20,9 +42,9 @@ go run ./cmd/poad-decision-service -init-dir ./local-poad -agents 4
 
 初始化命令拒绝覆盖已有文件。如果需要重建，请先自行备份并移走旧目录。
 
-## 2. 配置 AgentEmulator
+## 2. 可选：手动配置 AgentEmulator
 
-编辑 `agentEmuConfig.yaml` 的 `chain` 部分，填写初始化命令生成的摘要（64 位十六进制字符串）：
+如果需要关闭本地自动初始化，先设置 `chain.poad_auto_init_local_identities: false`，再把初始化命令生成的真实摘要（64 位十六进制字符串）写入配置：
 
 ```yaml
 chain:

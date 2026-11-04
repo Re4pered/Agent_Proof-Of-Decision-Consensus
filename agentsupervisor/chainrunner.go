@@ -185,51 +185,20 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 		return nil, err
 	}
 
-	if c.PoADRequired && (c.PoADRegistryPath == "" ||
-		c.PoADRegistrySHA256 == "" ||
-		spec.IntentManifestPath == "" ||
-		c.PoADDecisionServiceConfigPath == "") {
-		return nil, fmt.Errorf(
-			"required PoAD needs registry path/digest, an intent manifest, and a local decision-service config",
-		)
+	if c.PoADRequired && spec.IntentManifestPath == "" {
+		return nil, fmt.Errorf("strict PoAD requires a payment-intent manifest")
 	}
 
-	if (c.PoADRegistryPath == "") != (c.PoADRegistrySHA256 == "") {
-		return nil, fmt.Errorf("PoAD registry path and SHA-256 digest must be configured together")
+	nodeArgs, err := c.nodeStartupArgs(cfgPath, tablePath, chainDir)
+	if err != nil {
+		return nil, fmt.Errorf("configure consensus node startup: %w", err)
 	}
 
-	nodeArgs := []string{"-config", cfgPath, "-ip_table", tablePath}
-	if c.PoADRegistryPath != "" {
-		nodeArgs = append(nodeArgs,
-			"-poad-registry", c.PoADRegistryPath,
-			"-poad-registry-sha256", c.PoADRegistrySHA256,
-		)
-
-		if spec.IntentManifestPath != "" {
-			manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
-			digestPath := manifestPath + ".sha256"
-
-			digestRaw, readErr := os.ReadFile(digestPath)
-			if readErr != nil {
-				return nil, fmt.Errorf("read staged PoAD intent manifest digest: %w", readErr)
-			}
-
-			digestFields := strings.Fields(string(digestRaw))
-
-			if len(digestFields) == 0 {
-				return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
-			}
-
-			nodeArgs = append(nodeArgs,
-				"-poad-intent-manifest", manifestPath,
-				"-poad-intent-manifest-sha256", digestFields[0],
-			)
-		}
-
-		if c.PoADRequired {
-			nodeArgs = append(nodeArgs, "-poad-required")
-		}
-	}
+	slog.Info("configured consensus node startup",
+		"poad_required", c.PoADRequired,
+		"registry_configured", c.PoADRegistryPath != "",
+		"intent_manifest_configured", c.PoADRequired,
+	)
 
 	if c.PoADRequired {
 		manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
@@ -329,6 +298,55 @@ func (c *ChainRunner) Run(ctx context.Context, spec RoundSpec) (*ChainOutcome, e
 	}
 
 	return &ChainOutcome{ChainDir: chainDir, ResultDir: resultDir, ShardNum: shardNum}, nil
+}
+
+// nodeStartupArgs keeps PoAD flags consistent across every consensus node.
+// A payment-intent manifest may only be supplied when the node is explicitly
+// in strict PoAD mode; otherwise consensusnode rejects the startup flags.
+func (c *ChainRunner) nodeStartupArgs(cfgPath, tablePath, chainDir string) ([]string, error) {
+	if (c.PoADRegistryPath == "") != (c.PoADRegistrySHA256 == "") {
+		return nil, fmt.Errorf("PoAD registry path and SHA-256 digest must be configured together")
+	}
+
+	if c.PoADDecisionServiceConfigPath != "" && !c.PoADRequired {
+		return nil, fmt.Errorf("local PoAD decision service requires chain.poad_required: true")
+	}
+
+	args := []string{"-config", cfgPath, "-ip_table", tablePath}
+	if c.PoADRegistryPath != "" {
+		args = append(args,
+			"-poad-registry", c.PoADRegistryPath,
+			"-poad-registry-sha256", c.PoADRegistrySHA256,
+		)
+	}
+
+	if !c.PoADRequired {
+		// Optional identity validation must not accidentally enable strict
+		// intent-manifest validation without -poad-required.
+		return args, nil
+	}
+
+	if c.PoADRegistryPath == "" || c.PoADDecisionServiceConfigPath == "" {
+		return nil, fmt.Errorf("strict PoAD requires a trusted registry and local decision-service config")
+	}
+
+	manifestPath := filepath.Join(chainDir, PoADPaymentManifestFileName)
+
+	digestRaw, err := os.ReadFile(manifestPath + ".sha256")
+	if err != nil {
+		return nil, fmt.Errorf("read staged PoAD intent manifest digest: %w", err)
+	}
+
+	digestFields := strings.Fields(string(digestRaw))
+	if len(digestFields) == 0 {
+		return nil, fmt.Errorf("staged PoAD intent manifest digest is empty")
+	}
+
+	return append(args,
+		"-poad-required=true",
+		"-poad-intent-manifest", manifestPath,
+		"-poad-intent-manifest-sha256", digestFields[0],
+	), nil
 }
 
 func waitForPoADDecisionService(ctx context.Context, endpoint string, timeout time.Duration) error {

@@ -39,8 +39,11 @@ type Config struct {
 		PoADRequired bool `yaml:"poad_required"`
 		// PoADDecisionServiceConfigPath is a local-only file containing Agent private keys.
 		PoADDecisionServiceConfigPath string `yaml:"poad_decision_service_config_path"`
-		PoADRequiredVotes             int    `yaml:"poad_required_votes"`
-		PoADDecisionTimeoutSeconds    int    `yaml:"poad_decision_timeout_seconds"`
+		// PoADAutoInitLocalIdentities provisions/reuses demo keys and reads the
+		// locally verified registry digest. Never use as a production trust anchor.
+		PoADAutoInitLocalIdentities bool `yaml:"poad_auto_init_local_identities"`
+		PoADRequiredVotes           int  `yaml:"poad_required_votes"`
+		PoADDecisionTimeoutSeconds  int  `yaml:"poad_decision_timeout_seconds"`
 	} `yaml:"chain"`
 	Loop struct {
 		// MaxRounds caps the simulation loop even if an AgentAPI keeps producing
@@ -82,7 +85,18 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, fmt.Errorf("base.blockemulator_config is required when chain.enabled is true")
 	}
 
-	if (cfg.Chain.PoADRegistryPath == "") != (cfg.Chain.PoADRegistrySHA256 == "") {
+	if cfg.Chain.PoADAutoInitLocalIdentities && (!cfg.Chain.Enabled || !cfg.Chain.PoADRequired) {
+		return Config{}, fmt.Errorf("chain.poad_auto_init_local_identities requires enabled strict PoAD")
+	}
+
+	if cfg.Chain.PoADAutoInitLocalIdentities && cfg.Chain.PoADRegistrySHA256 != "" {
+		return Config{}, fmt.Errorf(
+			"chain.poad_registry_sha256 must be empty for automatic local identity initialization",
+		)
+	}
+
+	if !cfg.Chain.PoADAutoInitLocalIdentities &&
+		(cfg.Chain.PoADRegistryPath == "") != (cfg.Chain.PoADRegistrySHA256 == "") {
 		return Config{}, fmt.Errorf(
 			"chain.poad_registry_path and chain.poad_registry_sha256 must be configured together",
 		)
@@ -90,10 +104,18 @@ func LoadConfig(path string) (Config, error) {
 
 	if cfg.Chain.PoADRequired && (!cfg.Chain.Enabled ||
 		cfg.Chain.PoADRegistryPath == "" ||
+		(!cfg.Chain.PoADAutoInitLocalIdentities && cfg.Chain.PoADRegistrySHA256 == "") ||
 		cfg.Chain.PoADDecisionServiceConfigPath == "") {
 		return Config{}, fmt.Errorf(
 			"chain.poad_required needs chain.enabled=true, both PoAD registry settings, " +
 				"and chain.poad_decision_service_config_path",
+		)
+	}
+
+	if cfg.Chain.PoADDecisionServiceConfigPath != "" && !cfg.Chain.PoADRequired {
+		return Config{}, fmt.Errorf(
+			"chain.poad_decision_service_config_path requires chain.poad_required: true " +
+				"to enable strict PoAD consensus",
 		)
 	}
 

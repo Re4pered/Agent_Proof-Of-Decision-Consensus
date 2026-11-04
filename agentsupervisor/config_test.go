@@ -3,6 +3,7 @@ package agentsupervisor
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,4 +105,36 @@ protocols:
 `
 	_, err := LoadConfig(writeAgentEmuConfig(t, content))
 	require.ErrorContains(t, err, "poad_decision_service_config_path")
+}
+
+func TestLoadConfigRejectsDecisionServiceWithoutStrictPoAD(t *testing.T) {
+	content := strings.Replace(testAgentEmuConfig, "poad_required: true", "poad_required: false", 1)
+
+	_, err := LoadConfig(writeAgentEmuConfig(t, content))
+	require.ErrorContains(t, err, "requires chain.poad_required: true")
+}
+
+func TestLoadConfigAllowsAutomaticLocalPoADIdentityInitialization(t *testing.T) {
+	content := strings.Replace(testAgentEmuConfig,
+		"poad_registry_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"poad_registry_sha256: \"\"", 1)
+	content = strings.Replace(content, "poad_required: true",
+		"poad_auto_init_local_identities: true\n  poad_required: true", 1)
+
+	cfg, err := LoadConfig(writeAgentEmuConfig(t, content))
+	require.NoError(t, err)
+	require.True(t, cfg.Chain.PoADRequired)
+	require.True(t, cfg.Chain.PoADAutoInitLocalIdentities)
+	require.Empty(t, cfg.Chain.PoADRegistrySHA256)
+}
+
+func TestLoadConfigRejectsAutomaticLocalIdentitiesOutsideStrictMode(t *testing.T) {
+	content := strings.Replace(testAgentEmuConfig, "poad_required: true",
+		"poad_auto_init_local_identities: true\n  poad_required: false", 1)
+	content = strings.Replace(content,
+		"poad_registry_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"poad_registry_sha256: \"\"", 1)
+
+	_, err := LoadConfig(writeAgentEmuConfig(t, content))
+	require.ErrorContains(t, err, "requires enabled strict PoAD")
 }
