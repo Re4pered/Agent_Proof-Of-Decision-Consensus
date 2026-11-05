@@ -24,12 +24,12 @@ type StaticRelayCommittee struct {
 	txSource    txsource.TxSource // txSource brings the txs into the blockchain system.
 	sl          stopLogic         // sl is the logic of stop.
 	unsentTxNum int64
+
 	// The opt-in smoke mode observes unique hashes of injected and committed
 	// intra-shard transactions. It does not count empty blocks or relay stages.
 	smokeInjected  map[string]struct{}
 	smokeCommitted map[string]struct{}
-
-	cfg config.SupervisorCfg
+	cfg            config.SupervisorCfg
 }
 
 func NewStaticRelayCommittee(
@@ -43,14 +43,14 @@ func NewStaticRelayCommittee(
 	}
 
 	return &StaticRelayCommittee{
-		r:           r,
-		conn:        conn,
-		txSource:    ts,
-		sl:          stopLogic{stopThreshold: cfg.ShardNum * stopThresholdPerShard, stopCnt: 0},
-		unsentTxNum:     cfg.TxNumber,
+		r:              r,
+		conn:           conn,
+		txSource:       ts,
+		sl:             stopLogic{stopThreshold: cfg.ShardNum * stopThresholdPerShard, stopCnt: 0},
+		unsentTxNum:    cfg.TxNumber,
 		smokeInjected:  make(map[string]struct{}),
 		smokeCommitted: make(map[string]struct{}),
-		cfg:             cfg,
+		cfg:            cfg,
 	}, nil
 }
 
