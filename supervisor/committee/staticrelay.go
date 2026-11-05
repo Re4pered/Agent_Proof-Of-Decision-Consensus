@@ -73,7 +73,7 @@ func (s *StaticRelayCommittee) HandleMsg(_ context.Context, msg *rpcserver.Wrapp
 		return fmt.Errorf("decode relayBlockInfoMsg: %w", err)
 	}
 
-	if s.cfg.StopOnAllCommitted {
+	if s.cfg.StopOnCommit {
 		// The smoke mode is intentionally limited to local payments. Only count
 		// transactions actually injected by this supervisor and observed in a
 		// committed block; ignore duplicate or unsolicited block notifications.
@@ -107,7 +107,7 @@ func (s *StaticRelayCommittee) HandleMsg(_ context.Context, msg *rpcserver.Wrapp
 }
 
 func (s *StaticRelayCommittee) ShouldStop() bool {
-	if s.cfg.StopOnAllCommitted {
+	if s.cfg.StopOnCommit {
 		return s.unsentTxNum <= 0 &&
 			int64(len(s.smokeInjected)) == s.cfg.TxNumber &&
 			len(s.smokeCommitted) == len(s.smokeInjected)
@@ -128,7 +128,7 @@ func (s *StaticRelayCommittee) readTxsAndSend(ctx context.Context) error {
 		return fmt.Errorf("failed to send txs to shards: %w", err)
 	}
 
-	if s.cfg.StopOnAllCommitted {
+	if s.cfg.StopOnCommit {
 		for i := range txs {
 			hash, hashErr := txs[i].Hash()
 			if hashErr != nil {
