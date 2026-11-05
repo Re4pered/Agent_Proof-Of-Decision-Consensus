@@ -24,6 +24,10 @@ type StaticRelayCommittee struct {
 	txSource    txsource.TxSource // txSource brings the txs into the blockchain system.
 	sl          stopLogic         // sl is the logic of stop.
 	unsentTxNum int64
+	// The opt-in smoke mode observes unique hashes of injected and committed
+	// intra-shard transactions. It does not count empty blocks or relay stages.
+	smokeInjected  map[string]struct{}
+	smokeCommitted map[string]struct{}
 
 	cfg config.SupervisorCfg
 }
@@ -43,8 +47,10 @@ func NewStaticRelayCommittee(
 		conn:        conn,
 		txSource:    ts,
 		sl:          stopLogic{stopThreshold: cfg.ShardNum * stopThresholdPerShard, stopCnt: 0},
-		unsentTxNum: cfg.TxNumber,
-		cfg:         cfg,
+		unsentTxNum:     cfg.TxNumber,
+		smokeInjected:  make(map[string]struct{}),
+		smokeCommitted: make(map[string]struct{}),
+		cfg:             cfg,
 	}, nil
 }
 
@@ -67,6 +73,29 @@ func (s *StaticRelayCommittee) HandleMsg(_ context.Context, msg *rpcserver.Wrapp
 		return fmt.Errorf("decode relayBlockInfoMsg: %w", err)
 	}
 
+	if s.cfg.StopOnAllCommitted {
+		// The smoke mode is intentionally limited to local payments. Only count
+		// transactions actually injected by this supervisor and observed in a
+		// committed block; ignore duplicate or unsolicited block notifications.
+		if len(bInfo.Relay1Txs) > 0 || len(bInfo.Relay2Txs) > 0 {
+			return fmt.Errorf("pay-only smoke received relay transactions")
+		}
+
+		for i := range bInfo.InnerShardTxs {
+			hash, hashErr := bInfo.InnerShardTxs[i].Hash()
+			if hashErr != nil {
+				return fmt.Errorf("hash committed smoke payment: %w", hashErr)
+			}
+
+			key := string(hash)
+			if _, injected := s.smokeInjected[key]; injected {
+				s.smokeCommitted[key] = struct{}{}
+			}
+		}
+
+		return nil
+	}
+
 	if s.unsentTxNum <= 0 &&
 		len(bInfo.InnerShardTxs)+len(bInfo.Relay1Txs)+len(bInfo.Relay2Txs) == 0 {
 		s.sl.stopCnt++
@@ -78,6 +107,12 @@ func (s *StaticRelayCommittee) HandleMsg(_ context.Context, msg *rpcserver.Wrapp
 }
 
 func (s *StaticRelayCommittee) ShouldStop() bool {
+	if s.cfg.StopOnAllCommitted {
+		return s.unsentTxNum <= 0 &&
+			int64(len(s.smokeInjected)) == s.cfg.TxNumber &&
+			len(s.smokeCommitted) == len(s.smokeInjected)
+	}
+
 	return s.sl.stopCnt >= s.sl.stopThreshold
 }
 
@@ -91,6 +126,17 @@ func (s *StaticRelayCommittee) readTxsAndSend(ctx context.Context) error {
 	shardTxs := packShardTxs(txs, s.cfg.ShardNum, s.getTxLoc)
 	if err = message.SendWrappedTxs2Shards(ctx, shardTxs, s.conn, s.r); err != nil {
 		return fmt.Errorf("failed to send txs to shards: %w", err)
+	}
+
+	if s.cfg.StopOnAllCommitted {
+		for i := range txs {
+			hash, hashErr := txs[i].Hash()
+			if hashErr != nil {
+				return fmt.Errorf("hash injected smoke payment: %w", hashErr)
+			}
+
+			s.smokeInjected[string(hash)] = struct{}{}
+		}
 	}
 
 	s.unsentTxNum -= int64(len(txs))
