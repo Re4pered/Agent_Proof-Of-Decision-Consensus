@@ -17,15 +17,16 @@ type SystemCfg struct {
 
 type SupervisorCfg struct {
 	SystemCfg
-	TxNumber         int64 `json:"tx_number"          yaml:"tx_number"`
-	TxInjectionSpeed int64 `json:"tx_injection_speed" yaml:"tx_injection_speed"` // transactions per second
-	// StopOnAllCommitted is an opt-in local pay-only smoke completion mode.
-	// It counts unique injected transactions confirmed in intra-shard blocks.
-	StopOnCommit    bool   `json:"stop_on_all_committed" yaml:"stop_on_all_committed"`
-	ResultOutputDir string `json:"result_output_dir"    yaml:"result_output_dir"`
-	EpochDuration   int64  `json:"epoch_duration"      yaml:"epoch_duration"`
-	TxSourceCfg     `       json:"tx_source"           yaml:"tx_source"`
-	BrokerModuleCfg `       json:"broker_module"       yaml:"broker_module"`
+	TxNumber         int64  `json:"tx_number"          yaml:"tx_number"`
+	TxInjectionSpeed int64  `json:"tx_injection_speed" yaml:"tx_injection_speed"` // transactions per second
+	ResultOutputDir  string `json:"result_output_dir"  yaml:"result_output_dir"`
+	EpochDuration    int64  `json:"epoch_duration"     yaml:"epoch_duration"`
+	TxSourceCfg      `       json:"tx_source"          yaml:"tx_source"`
+	BrokerModuleCfg  `       json:"broker_module"      yaml:"broker_module"`
+
+	// StopOnCommit is an opt-in, local pay-only smoke completion mode.
+	// It only accepts unique injected hashes confirmed in committed blocks.
+	StopOnCommit bool `json:"stop_on_all_committed" yaml:"stop_on_all_committed"`
 }
 
 type ConsensusNodeCfg struct {
