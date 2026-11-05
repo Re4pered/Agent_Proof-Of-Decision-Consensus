@@ -76,20 +76,25 @@ class SmokeValidatorTest(unittest.TestCase):
         )
 
     def test_wrong_shard_binding_fails(self):
-        path = (self.root / "round_001" / "chain" / "data"
-                / "block_record" / "shard=0_node=0" / "block_record.csv")
-        rows = list(csv.DictReader(path.open(newline="")))
-        rows[0]["StateRoot"] = f"{999:064x}"
-        with path.open("w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["TxBodyLen", "StateRoot"])
-            writer.writeheader()
-            writer.writerows(rows)
+        log = (self.root / "round_001" / "chain" / "logs"
+               / "poad_decision_service.log")
+        content = log.read_text(encoding="utf-8")
+        # Tamper with the FIRST transaction's decision root: shard 0 tx
+        # reports a state root from shard 1. Global-root matching would
+        # incorrectly accept this; shard-aware matching must reject it.
+        content = content.replace(
+            "transaction_hash=" + f"{1:064x}" + " state_root=" + f"{1:064x}",
+            "transaction_hash=" + f"{1:064x}" + " state_root=" + f"{9:064x}",
+            1,
+        )
+        log.write_text(content, encoding="utf-8")
         report = check(self.root)
         self.assertEqual(report["status"], "failed")
         self.assertLess(
             report["planned_hashes_with_accepted_decision_and_committed_state_root"],
             80,
         )
+
 
 
 if __name__ == "__main__":
