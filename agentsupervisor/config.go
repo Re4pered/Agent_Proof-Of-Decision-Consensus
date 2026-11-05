@@ -86,24 +86,8 @@ func LoadConfig(path string) (Config, error) {
 		cfg.Base.ModuleRoot = "."
 	}
 
-	if len(cfg.Experiment.BootstrapAgents) > 0 {
-		if !cfg.Chain.Enabled || !cfg.Chain.PoADRequired {
-			return Config{}, fmt.Errorf("experiment.bootstrap_agents requires enabled strict PoAD for local smoke experiments")
-		}
-
-		seen := make(map[string]struct{}, len(cfg.Experiment.BootstrapAgents))
-
-		for _, id := range cfg.Experiment.BootstrapAgents {
-			if id == "" || strings.TrimSpace(id) != id {
-				return Config{}, fmt.Errorf("experiment.bootstrap_agents contains an empty or whitespace-padded agent ID")
-			}
-
-			if _, duplicate := seen[id]; duplicate {
-				return Config{}, fmt.Errorf("experiment.bootstrap_agents contains duplicate agent ID %q", id)
-			}
-
-			seen[id] = struct{}{}
-		}
+	if err := validateSmokeBootstrapConfig(cfg); err != nil {
+		return Config{}, err
 	}
 
 	if cfg.Chain.Enabled && cfg.Base.BlockEmulatorConfig == "" {
@@ -173,4 +157,33 @@ func LoadConfig(path string) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func validateSmokeBootstrapConfig(cfg Config) error {
+	ids := cfg.Experiment.BootstrapAgents
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if !cfg.Chain.Enabled || !cfg.Chain.PoADRequired {
+		return fmt.Errorf(
+			"experiment.bootstrap_agents requires enabled strict PoAD for local smoke experiments",
+		)
+	}
+
+	seen := make(map[string]struct{}, len(ids))
+
+	for _, id := range ids {
+		if id == "" || strings.TrimSpace(id) != id {
+			return fmt.Errorf("experiment.bootstrap_agents contains an empty or whitespace-padded agent ID")
+		}
+
+		if _, duplicate := seen[id]; duplicate {
+			return fmt.Errorf("experiment.bootstrap_agents contains duplicate agent ID %q", id)
+		}
+
+		seen[id] = struct{}{}
+	}
+
+	return nil
 }
