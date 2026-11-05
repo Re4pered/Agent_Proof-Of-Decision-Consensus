@@ -694,7 +694,12 @@ func (n *Node) propose(ctx context.Context) error {
 	}
 
 	ppMsg := &message.PreprepareMsg{
-		P: *p, Digest: digest, Seq: n.pbftMeta.curViewSeq.Seq, View: n.pbftMeta.curViewSeq.View,
+		P:       *p,
+		Digest:  digest,
+		Seq:     n.pbftMeta.curViewSeq.Seq,
+		View:    n.pbftMeta.curViewSeq.View,
+		ShardID: n.pbftMeta.lp.ShardID,
+		NodeID:  n.pbftMeta.lp.NodeID,
 	}
 
 	if err = n.broadcastMsgInnerShard(ctx, ppMsg); err != nil {

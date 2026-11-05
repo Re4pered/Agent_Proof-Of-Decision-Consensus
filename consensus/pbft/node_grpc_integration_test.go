@@ -102,23 +102,42 @@ func TestPBFTPreprepareBroadcastOverGRPC(t *testing.T) {
 				}
 			}
 
-			proposal := &message.Proposal{
-				Block: block.NewBlock(block.Header{Number: 1}, block.Body{}, block.MigrationOpt{}),
-			}
-			digest, err := proposal.Hash()
-			if err != nil {
-				t.Fatal(err)
-			}
-			preprepare := &message.PreprepareMsg{
-				P:       *proposal,
-				Digest:  digest,
-				ShardID: shardID,
-				NodeID:  0,
-				View:    0,
-				Seq:     0,
-			}
-			if err := nodes[0].broadcastMsgInnerShard(context.Background(), preprepare); err != nil {
-				t.Fatalf("leader broadcast failed: %v", err)
+			var leaderOp *rejectingProposalOp
+
+			if tc.wantAccept {
+				// Exercise the real leader propose path: it must stamp the
+				// leader's shard/node ID rather than sending zero-valued IDs.
+				leaderOp = &rejectingProposalOp{}
+				nodes[0].iop = leaderOp
+				nodes[0].pbftMeta.lastProposeTime = time.Time{}
+
+				if err := nodes[0].propose(context.Background()); err != nil {
+					t.Fatalf("leader propose failed: %v", err)
+				}
+			} else {
+				// Bypass the leader's local rejection to test that every
+				// follower independently rejects invalid PoAD evidence.
+				proposal := &message.Proposal{
+					Block: block.NewBlock(block.Header{Number: 1}, block.Body{}, block.MigrationOpt{}),
+				}
+
+				digest, err := proposal.Hash()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				preprepare := &message.PreprepareMsg{
+					P:       *proposal,
+					Digest:  digest,
+					ShardID: shardID,
+					NodeID:  0,
+					View:    0,
+					Seq:     0,
+				}
+
+				if err := nodes[0].broadcastMsgInnerShard(context.Background(), preprepare); err != nil {
+					t.Fatalf("leader broadcast failed: %v", err)
+				}
 			}
 
 			for nodeID, node := range nodes {
@@ -148,7 +167,11 @@ func TestPBFTPreprepareBroadcastOverGRPC(t *testing.T) {
 				if !tc.wantAccept && len(pooled) != 0 {
 					t.Errorf("replica %d pooled invalid proposal", nodeID)
 				}
-				if ops[nodeID].validateCalls != 1 {
+				if tc.wantAccept && nodeID == 0 {
+					if leaderOp.validateCalls != 2 {
+						t.Errorf("leader validation calls = %d, want 2 (local and inbound)", leaderOp.validateCalls)
+					}
+				} else if ops[nodeID].validateCalls != 1 {
 					t.Errorf("replica %d validation calls = %d, want 1", nodeID, ops[nodeID].validateCalls)
 				}
 			}
