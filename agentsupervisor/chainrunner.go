@@ -438,6 +438,7 @@ func (c *ChainRunner) prepare(chainDir string, spec RoundSpec) (string, string, 
 	// The supervisor stops once tx_number transactions are injected and empty
 	// blocks pile up; pinning it to the plan size lets the run finish by itself.
 	setYAMLPath(doc, []string{"supervisor", "tx_number"}, spec.TxCount)
+
 	if c.StopOnAllCommitted {
 		setYAMLPath(doc, []string{"supervisor", "stop_on_all_committed"}, true)
 	}
