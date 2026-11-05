@@ -48,9 +48,9 @@ type Config struct {
 		// locally verified registry digest. Never use as a production trust anchor.
 		PoADAutoInitLocalIdentities bool `yaml:"poad_auto_init_local_identities"`
 		// StopOnAllCommitted is restricted to local pay-only strict smoke runs.
-		StopOnAllCommitted bool `yaml:"stop_on_all_committed"`
-		PoADRequiredVotes           int  `yaml:"poad_required_votes"`
-		PoADDecisionTimeoutSeconds  int  `yaml:"poad_decision_timeout_seconds"`
+		StopOnAllCommitted         bool `yaml:"stop_on_all_committed"`
+		PoADRequiredVotes          int  `yaml:"poad_required_votes"`
+		PoADDecisionTimeoutSeconds int  `yaml:"poad_decision_timeout_seconds"`
 	} `yaml:"chain"`
 	Loop struct {
 		// MaxRounds caps the simulation loop even if an AgentAPI keeps producing
