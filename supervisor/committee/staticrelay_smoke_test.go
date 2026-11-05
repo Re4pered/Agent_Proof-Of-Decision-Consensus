@@ -38,7 +38,7 @@ func TestStaticRelaySmokeStopsOnlyOnUniqueInjectedCommittedPayments(t *testing.T
 	s := &StaticRelayCommittee{
 		cfg: config.SupervisorCfg{
 			TxNumber:           2,
-			StopOnAllCommitted: true,
+			StopOnCommit: true,
 		},
 		unsentTxNum:     1,
 		smokeInjected:  map[string]struct{}{key1: {}, key2: {}},
@@ -69,7 +69,7 @@ func TestStaticRelaySmokeStopsOnlyOnUniqueInjectedCommittedPayments(t *testing.T
 
 func TestStaticRelaySmokeRejectsUnexpectedRelayStage(t *testing.T) {
 	s := &StaticRelayCommittee{
-		cfg: config.SupervisorCfg{TxNumber: 1, StopOnAllCommitted: true},
+		cfg: config.SupervisorCfg{TxNumber: 1, StopOnCommit: true},
 		smokeInjected: make(map[string]struct{}),
 		smokeCommitted: make(map[string]struct{}),
 	}
