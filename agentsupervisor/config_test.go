@@ -138,3 +138,22 @@ func TestLoadConfigRejectsAutomaticLocalIdentitiesOutsideStrictMode(t *testing.T
 	_, err := LoadConfig(writeAgentEmuConfig(t, content))
 	require.ErrorContains(t, err, "requires enabled strict PoAD")
 }
+
+func TestLoadConfigRejectsBootstrapAgentsOutsideStrictPoAD(t *testing.T) {
+	content := strings.Replace(testAgentEmuConfig,
+		"  trace: ./trace.jsonl",
+		"  trace: ./trace.jsonl\n  bootstrap_agents: [alice, bob]", 1)
+	content = strings.Replace(content, "poad_required: true", "poad_required: false", 1)
+
+	_, err := LoadConfig(writeAgentEmuConfig(t, content))
+	require.ErrorContains(t, err, "experiment.bootstrap_agents requires enabled strict PoAD")
+}
+
+func TestLoadConfigRejectsDuplicateSmokeBootstrapIDs(t *testing.T) {
+	content := strings.Replace(testAgentEmuConfig,
+		"  trace: ./trace.jsonl",
+		"  trace: ./trace.jsonl\n  bootstrap_agents: [alice, alice]", 1)
+
+	_, err := LoadConfig(writeAgentEmuConfig(t, content))
+	require.ErrorContains(t, err, "duplicate agent ID")
+}

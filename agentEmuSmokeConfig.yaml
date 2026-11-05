@@ -1,0 +1,37 @@
+# Independent four-shard, 80-payment STRICT PoAD completion smoke test.
+# Pre-registered accounts are a local test fixture, not on-chain DID registrations.
+base:
+  blockemulator_config: ./config.yaml
+  result_dir: ./exp/poad-smoke-results
+  module_root: "."
+experiment:
+  seed: 20260903
+  trace: ./traces/poad_smoke_80.jsonl
+  bootstrap_agents:
+    - smoke-agent-000
+    - smoke-agent-003
+    - smoke-agent-002
+    - smoke-agent-007
+    - smoke-agent-001
+    - smoke-agent-004
+    - smoke-agent-009
+    - smoke-agent-015
+chain:
+  enabled: true
+  run_timeout_seconds: 600
+  node_exit_grace_seconds: 15
+  poad_registry_path: ./local-poad/registry.public.json
+  poad_registry_sha256: ""
+  poad_decision_service_config_path: ./local-poad/agents.private.json
+  poad_auto_init_local_identities: true
+  poad_required: true
+  poad_required_votes: 2
+  poad_decision_timeout_seconds: 15
+loop:
+  max_rounds: 1
+protocols:
+  pay:
+    plugin: direct-pay
+  identity:
+    plugin: did-simple
+    contract_address: "0x0000000000000000000000000000000000000030"

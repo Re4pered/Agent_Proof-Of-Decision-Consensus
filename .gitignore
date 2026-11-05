@@ -40,3 +40,6 @@ __pycache__/
 # Local experimental PoAD Agent private keys and identity registry.
 # Never commit generated signing keys or identity snapshots.
 /local-poad/
+
+# Local smoke-test console logs and archived experiment outputs.
+/diagnostics/

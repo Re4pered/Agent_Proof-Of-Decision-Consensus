@@ -89,6 +89,15 @@ func NewAgentSupervisor(cfg Config) (*AgentSupervisor, error) {
 		return nil, err
 	}
 
+	// Opt-in smoke bootstrap models a pre-existing local account registry.
+	// It emits no join transaction, so strict payment-intent validation can
+	// cover every transaction in a pay-only experiment without bypasses.
+	for _, id := range cfg.Experiment.BootstrapAgents {
+		if _, _, err := registry.Join(id); err != nil {
+			return nil, fmt.Errorf("bootstrap smoke agent %q: %w", id, err)
+		}
+	}
+
 	return &AgentSupervisor{
 		cfg:          cfg,
 		abi:          parsed,
