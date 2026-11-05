@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/HuangLab-SYSU/block-emulator-x/pkg/partition"
 	"github.com/HuangLab-SYSU/block-emulator-x/pkg/utils"
 )
 
@@ -217,4 +218,51 @@ func TestHostActionTxMapLinksIntentToHashes(t *testing.T) {
 	}
 
 	require.Equal(t, planHashes, mapped)
+}
+
+func TestStrictPoADSmokeTraceProduces80PaymentOnlyTransactionsInFourShards(t *testing.T) {
+	cfg, err := LoadConfig(filepath.Join("..", "agentEmuSmokeConfig.yaml"))
+	require.NoError(t, err)
+	require.True(t, cfg.Chain.PoADRequired)
+	require.True(t, cfg.Chain.PoADAutoInitLocalIdentities)
+	require.Len(t, cfg.Experiment.BootstrapAgents, 8)
+
+	cfg.Base.ResultDir = t.TempDir()
+	records, err := LoadTrace(filepath.Join("..", "traces", "poad_smoke_80.jsonl"))
+	require.NoError(t, err)
+	require.Len(t, records, 80)
+
+	for _, record := range records {
+		require.Equal(t, ActionPay, record.Action)
+	}
+
+	sup, err := NewAgentSupervisor(cfg)
+	require.NoError(t, err)
+	result, err := sup.Process(records)
+	require.NoError(t, err)
+	require.Len(t, result.Transactions, 80)
+	require.Len(t, sup.links, 80)
+
+	perShard := [4]int{}
+
+	for _, tx := range result.Transactions {
+		senderShard := partition.DefaultAccountLoc(tx.Sender, 4)
+		recipientShard := partition.DefaultAccountLoc(tx.Recipient, 4)
+		require.Equal(t, senderShard, recipientShard)
+		perShard[senderShard]++
+		require.Empty(t, tx.Data)
+	}
+
+	require.Equal(t, [4]int{20, 20, 20, 20}, perShard)
+
+	dir := t.TempDir()
+	require.NoError(t, sup.WriteResult(dir, result))
+
+	manifest, err := os.ReadFile(filepath.Join(dir, PoADPaymentManifestFileName))
+	require.NoError(t, err)
+	require.Len(t, strings.Split(strings.TrimSpace(string(manifest)), "\n"), 80)
+
+	plan, err := os.ReadFile(filepath.Join(dir, PlanFileName))
+	require.NoError(t, err)
+	require.Len(t, strings.Split(strings.TrimSpace(string(plan)), "\n"), 80)
 }
