@@ -54,6 +54,7 @@ func main() {
 			PoADRequired:                  cfg.Chain.PoADRequired,
 			PoADDecisionServiceConfigPath: cfg.Chain.PoADDecisionServiceConfigPath,
 			PoADRequiredVotes:             cfg.Chain.PoADRequiredVotes,
+			StopOnAllCommitted:            cfg.Chain.StopOnAllCommitted,
 			PoADDecisionTimeout:           time.Duration(cfg.Chain.PoADDecisionTimeoutSeconds) * time.Second,
 		}
 		if err := chain.Build(ctx); err != nil {
