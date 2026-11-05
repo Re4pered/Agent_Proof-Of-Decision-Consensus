@@ -3,6 +3,7 @@ package agentsupervisor
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -20,6 +21,10 @@ type Config struct {
 	Experiment struct {
 		Seed  int64  `yaml:"seed"`
 		Trace string `yaml:"trace"`
+		// BootstrapAgents seeds the LOCAL experiment's registry before trace
+		// compilation, without generating on-chain DID registration transactions.
+		// Use only in pay-only smoke runs, never as on-chain identity evidence.
+		BootstrapAgents []string `yaml:"bootstrap_agents"`
 	} `yaml:"experiment"`
 	Chain struct {
 		// Enabled turns on automatic BlockEmulator-X execution after each round
@@ -79,6 +84,26 @@ func LoadConfig(path string) (Config, error) {
 
 	if cfg.Base.ModuleRoot == "" {
 		cfg.Base.ModuleRoot = "."
+	}
+
+	if len(cfg.Experiment.BootstrapAgents) > 0 {
+		if !cfg.Chain.Enabled || !cfg.Chain.PoADRequired {
+			return Config{}, fmt.Errorf("experiment.bootstrap_agents requires enabled strict PoAD for local smoke experiments")
+		}
+
+		seen := make(map[string]struct{}, len(cfg.Experiment.BootstrapAgents))
+
+		for _, id := range cfg.Experiment.BootstrapAgents {
+			if id == "" || strings.TrimSpace(id) != id {
+				return Config{}, fmt.Errorf("experiment.bootstrap_agents contains an empty or whitespace-padded agent ID")
+			}
+
+			if _, duplicate := seen[id]; duplicate {
+				return Config{}, fmt.Errorf("experiment.bootstrap_agents contains duplicate agent ID %q", id)
+			}
+
+			seen[id] = struct{}{}
+		}
 	}
 
 	if cfg.Chain.Enabled && cfg.Base.BlockEmulatorConfig == "" {
