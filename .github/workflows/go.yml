@@ -48,7 +48,8 @@ jobs:
 
       - name: Validate experiment metrics script and shell launcher
         run: |
-          python3 -m py_compile scripts/analyze_agentemu_results.py
+          python3 -m py_compile scripts/analyze_agentemu_results.py scripts/verify_poad_smoke.py scripts/test_verify_poad_smoke.py
+          python3 -m unittest discover -s scripts -p 'test_verify_poad_smoke.py'
           bash -n run_agentemu.sh
 
       - name: Download modules
