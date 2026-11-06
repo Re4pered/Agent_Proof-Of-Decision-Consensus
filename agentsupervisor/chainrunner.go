@@ -75,6 +75,8 @@ type ChainRunner struct {
 	PoADDecisionServiceConfigPath string
 	PoADRequiredVotes             int
 	PoADDecisionTimeout           time.Duration
+	// StopOnAllCommitted is used only for pay-only local smoke experiments.
+	StopOnAllCommitted bool
 }
 
 // BinDirName hosts the cluster binaries inside the module root. A bare
@@ -436,6 +438,10 @@ func (c *ChainRunner) prepare(chainDir string, spec RoundSpec) (string, string, 
 	// The supervisor stops once tx_number transactions are injected and empty
 	// blocks pile up; pinning it to the plan size lets the run finish by itself.
 	setYAMLPath(doc, []string{"supervisor", "tx_number"}, spec.TxCount)
+
+	if c.StopOnAllCommitted {
+		setYAMLPath(doc, []string{"supervisor", "stop_on_all_committed"}, true)
+	}
 
 	cfgBytes, err := yaml.Marshal(doc)
 	if err != nil {

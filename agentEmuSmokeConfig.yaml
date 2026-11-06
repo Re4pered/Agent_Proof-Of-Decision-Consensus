@@ -25,6 +25,8 @@ chain:
   poad_decision_service_config_path: ./local-poad/agents.private.json
   poad_auto_init_local_identities: true
   poad_required: true
+  # Strict pay-only smoke: exit only when all 80 injected hashes are confirmed.
+  stop_on_all_committed: true
   poad_required_votes: 2
   poad_decision_timeout_seconds: 15
 loop:

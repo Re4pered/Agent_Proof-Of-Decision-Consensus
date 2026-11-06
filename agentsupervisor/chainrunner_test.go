@@ -177,3 +177,23 @@ func TestChainRunnerNodeStartupArgsRejectsIncompleteStrictPoAD(t *testing.T) {
 	_, err := c.nodeStartupArgs("config.yaml", "ip_table.json", t.TempDir())
 	require.ErrorContains(t, err, "strict PoAD requires")
 }
+
+func TestChainRunnerSmokeStopModeIsExplicitOptIn(t *testing.T) {
+	c := newTestChainRunner(t)
+	c.StopOnAllCommitted = true
+	chainDir := filepath.Join(c.WorkRoot, "round_001", "chain")
+	require.NoError(t, os.MkdirAll(chainDir, 0o755))
+	planPath := filepath.Join(c.WorkRoot, "round_001", PlanFileName)
+	require.NoError(t, os.WriteFile(planPath, []byte("{}\n"), 0o644))
+
+	cfgPath, _, _, err := c.prepare(chainDir, RoundSpec{Round: 1, PlanPath: planPath, TxCount: 80})
+	require.NoError(t, err)
+	raw, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+
+	var derived map[string]any
+	require.NoError(t, yaml.Unmarshal(raw, &derived))
+	spv := derived["supervisor"].(map[string]any)
+	require.Equal(t, true, spv["stop_on_all_committed"])
+	require.EqualValues(t, 80, spv["tx_number"])
+}

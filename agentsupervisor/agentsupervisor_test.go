@@ -224,6 +224,7 @@ func TestStrictPoADSmokeTraceProduces80PaymentOnlyTransactionsInFourShards(t *te
 	cfg, err := LoadConfig(filepath.Join("..", "agentEmuSmokeConfig.yaml"))
 	require.NoError(t, err)
 	require.True(t, cfg.Chain.PoADRequired)
+	require.True(t, cfg.Chain.StopOnAllCommitted)
 	require.True(t, cfg.Chain.PoADAutoInitLocalIdentities)
 	require.Len(t, cfg.Experiment.BootstrapAgents, 8)
 

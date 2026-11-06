@@ -96,6 +96,17 @@ func (r *Runner) Run(ctx context.Context) ([]RoundResult, error) {
 	rounds := make([]RoundResult, 0, 1)
 
 	for round := 1; ; round++ {
+		if r.Cfg.Chain.StopOnAllCommitted {
+			for _, record := range records {
+				if record.Action != ActionPay {
+					return rounds, fmt.Errorf(
+						"round %d: committed-payment smoke only supports pay actions, got %q on trace line %d",
+						round, record.Action, record.Seq,
+					)
+				}
+			}
+		}
+
 		sup, err := NewAgentSupervisor(r.Cfg)
 		if err != nil {
 			return rounds, fmt.Errorf("round %d: create agent supervisor: %w", round, err)

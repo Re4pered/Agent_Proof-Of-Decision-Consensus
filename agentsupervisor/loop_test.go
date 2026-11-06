@@ -118,3 +118,14 @@ func countEventKind(csvContent, kind string) int {
 
 	return count
 }
+
+func TestRunnerRejectsNonPaymentActionInCommittedSmokeMode(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Chain.StopOnAllCommitted = true
+
+	r := &Runner{Cfg: cfg, Records: []Record{
+		{AgentID: "alice", Action: ActionJoin, TS: 1, Seq: 1},
+	}}
+	_, err := r.Run(context.Background())
+	require.ErrorContains(t, err, "only supports pay actions")
+}

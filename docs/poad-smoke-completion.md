@@ -43,4 +43,8 @@ python .\scripts\verify_poad_smoke.py .\exp\poad-smoke-results
 Get-Content .\exp\poad-smoke-results\smoke_validation.json
 ```
 
-如果超过 600 秒超时，保留整个 `exp/poad-smoke-results` 和新生成的 `diagnostics` 日志。**不要用增大 timeout 代替调查未提交的交易或错误日志**。只有 smoke 完成后，才逐步扩展至非支付意图、跨分片和大规模负载。
+如果超过 600 秒超时，保留整个 `exp/poad-smoke-results` 和新生成的 `diagnostics` 日志。**完成性停止条件（本次修复）**：严格 PoAD 的提案器不会产生没有可信交易绑定的空区块，因此默认 Supervisor 的“等待空区块”停止条件不适用。此实验独立启用 `chain.stop_on_all_committed: true`，并通过派生链配置传入 `supervisor.stop_on_all_committed: true`。在 `static_relay` 模式下，Supervisor 只对自己成功注入的、并在区块提交通知中观测到的**唯一交易哈希**计数；全部 80 个哈希确认后正常结束。该模式拒绝跨分片中继阶段数据，并限制只对 `pay` 动作生效。默认 10,000 笔实验仍保留原停止策略。
+
+**状态根校验**：80 个区块不必有 80 个不同状态根。状态根可能重复，完成性校验要求每笔支付的 ACCEPT 决策根能匹配到**所属分片**的实际提交根，不要求状态根全局唯一。不同状态根数量只作为诊断信息保留。
+
+**不要用增大 timeout 代替调查未提交的交易或错误日志**。只有 smoke 完成后，才逐步扩展至非支付意图、跨分片和大规模负载。

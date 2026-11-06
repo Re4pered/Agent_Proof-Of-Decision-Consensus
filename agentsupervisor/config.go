@@ -47,8 +47,10 @@ type Config struct {
 		// PoADAutoInitLocalIdentities provisions/reuses demo keys and reads the
 		// locally verified registry digest. Never use as a production trust anchor.
 		PoADAutoInitLocalIdentities bool `yaml:"poad_auto_init_local_identities"`
-		PoADRequiredVotes           int  `yaml:"poad_required_votes"`
-		PoADDecisionTimeoutSeconds  int  `yaml:"poad_decision_timeout_seconds"`
+		// StopOnAllCommitted is restricted to local pay-only strict smoke runs.
+		StopOnAllCommitted         bool `yaml:"stop_on_all_committed"`
+		PoADRequiredVotes          int  `yaml:"poad_required_votes"`
+		PoADDecisionTimeoutSeconds int  `yaml:"poad_decision_timeout_seconds"`
 	} `yaml:"chain"`
 	Loop struct {
 		// MaxRounds caps the simulation loop even if an AgentAPI keeps producing
@@ -161,6 +163,10 @@ func LoadConfig(path string) (Config, error) {
 
 func validateSmokeBootstrapConfig(cfg Config) error {
 	ids := cfg.Experiment.BootstrapAgents
+	if cfg.Chain.StopOnAllCommitted && (len(ids) == 0 || !cfg.Chain.Enabled || !cfg.Chain.PoADRequired) {
+		return fmt.Errorf("chain.stop_on_all_committed requires strict PoAD and local smoke bootstrap accounts")
+	}
+
 	if len(ids) == 0 {
 		return nil
 	}
